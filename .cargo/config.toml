@@ -1,0 +1,7 @@
+# Link the C runtime statically, so a show machine needs no Visual C++ redistributable.
+# /ignore:4099 quietens lld-link's "no PDB for the CRT" notes, which only matter to a debugger.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "link-arg=/ignore:4099"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "link-arg=/ignore:4099"]

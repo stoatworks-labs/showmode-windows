@@ -1,0 +1,55 @@
+[package]
+name = "showmode"
+# The one version: the app reads it with env!("CARGO_PKG_VERSION") and the build script names
+# the release from it.
+version = "0.1.0"
+edition = "2021"
+description = "Stops your show PC embarrassing you, and puts everything back afterwards"
+license = "MIT"
+repository = "https://github.com/stoatworks-labs/showmode-windows"
+publish = false
+
+[[bin]]
+name = "ShowMode"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-core = "0.58"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.58"
+features = [
+    "implement",
+    "Foundation",
+    "UI_Notifications",
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Media_Audio",
+    "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Console",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Power",
+    "Win32_System_Registry",
+    "Win32_System_Shutdown",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

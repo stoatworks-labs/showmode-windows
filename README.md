@@ -1,2 +1,69 @@
-# showmode-windows
-Stops your show PC embarrassing you: no sleep, notifications, Start menu or Task View mid-show, other apps kept off the PA, the cursor kept off the audience's screens, and everything put back afterwards
+# Show Mode for Windows
+
+> **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
+> (Anthropic), directed and reviewed by a human author.
+
+A notification-area app for the Windows PC that's running your slides or playback. It stops the
+PC doing anything clever during the show (going to sleep, popping up notifications, putting your
+holiday photos on the projector, letting Outlook chime through the PA), then puts every setting
+back how you had it.
+
+It's the Windows sibling of [Show Mode for the Mac](https://github.com/stoatworks-labs/showmode),
+and a separate app: Windows needed different answers to nearly every question.
+
+**Ctrl+Alt+Shift+F11** starts/ends show mode · or click the masks in the notification area
+
+> **Not released, and not yet run as a whole on Windows.** v0.1 is being built. The mechanisms
+> it uses for power, Do Not Disturb and muting other apps were each tried on real Windows 11 25H2
+> machines in a bench spike before any of this was written, and they worked. The app itself has
+> only been compiled so far. The [user guide](docs/USER-GUIDE.md) says exactly what has and
+> hasn't been checked, and I'll keep it honest as the bench work goes on.
+
+## What it does
+
+| Guard | How |
+|---|---|
+| Display & system sleep | a power request (`PowerSetRequest`, display and system), which dies with the process |
+| Show power plan | a temporary copy of your active plan with the lid set to do nothing and no display, sleep or hibernate timeouts; your own plan is never edited, and the copy is deleted afterwards |
+| Screen saver | `SPI_SETSCREENSAVEACTIVE`, only if it's on |
+| Do Not Disturb | the shell's own QuietHoursSettings COM server, the one Settings uses (undocumented, looked up at runtime, so a Windows without it just reports "unavailable") |
+| Snap | `SPI_SETWINARRANGING`: windows stop snapping to edges, Snap layouts and drag-to-top maximising |
+| App crash dialogs | Windows Error Reporting `DontShowUI` (per user); reports are still saved |
+| Desktop wallpaper | black on every screen through `IDesktopWallpaper`, including screens plugged in mid-show; pictures, position, colour and slideshow are journalled and put back. With Windows Spotlight as the background it's left alone, since Spotlight can't be put back exactly |
+| Other apps' sound *(off by default)* | every app not ticked under **Allowed to Play** is muted, session by session, on every output, including sound that's already playing. Windows remembers a per-app mute even after the app that set it has died, so a watchdog process unmutes everything the moment Show Mode does |
+
+Before changing anything it writes down what was there, in `%LOCALAPPDATA%\ShowMode\journal.json`.
+Ending the show puts back those values and nothing else. Quitting does the same, and if the app
+crashes or the PC restarts mid-show, the next launch finds the journal and finishes the job.
+Nothing in v0.1 needs admin.
+
+Not in v0.1, and on the list: keeping Windows-key shortcuts and the cursor off the audience's
+screens, the display lock, pre-show checks (a pending update restart, mostly), accessibility
+hotkeys, and the background-work guards.
+
+## Driving it from somewhere else
+
+```
+ShowMode.exe showmode://on
+```
+
+`showmode://off` and `showmode://toggle` too. The scheme is registered for your user at every
+launch, so Companion (with its shell action on the same PC), a show-control script or a
+terminal can drive it. A copy started with a command hands it to the running app and leaves.
+
+`ShowMode.exe --status` prints what it can see without changing anything.
+
+## Building
+
+From a Mac (or Linux) with [cargo-xwin](https://github.com/rust-cross/cargo-xwin):
+
+```bash
+scripts/build.sh
+```
+
+That writes x64 and ARM64 executables to `dist/`. On Windows, plain `cargo build --release`
+does it. `swift scripts/make-icons.swift` redraws the icons (it needs a Mac).
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
