@@ -23,6 +23,8 @@ pub const CLASS: PCWSTR = w!("StoatworksShowMode");
 pub const COPYDATA_COMMAND: usize = 0x534D;
 
 const WM_TRAY: u32 = WM_APP + 1;
+/// A command handed over by another copy, run from the message loop (see WM_COPYDATA).
+const WM_RUN_COMMAND: u32 = WM_APP + 2;
 /// NIN_SELECT | NINF_KEY: the icon chosen with the keyboard.
 const NIN_KEYSELECT: u32 = 0x401;
 const TRAY_ID: u32 = 1;
@@ -350,11 +352,28 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 let words = std::slice::from_raw_parts(cds.lpData as *const u16, cds.cbData as usize / 2);
                 let text = String::from_utf16_lossy(words);
                 showlog::note(format!("command: {}", text.trim_end_matches('\0')));
+                // Not run here: WM_COPYDATA is a synchronous call from another process, and
+                // COM refuses outgoing calls while one is in progress (RPC_E_CANTCALLOUT_
+                // ININPUTSYNCCALL), which took Do Not Disturb and the wallpaper down on winlab.
                 if let Some(c) = integration::parse(text.trim_end_matches('\0')) {
-                    command(c);
+                    let code = match c {
+                        Command::On => 1,
+                        Command::Off => 2,
+                        Command::Toggle => 3,
+                    };
+                    let _ = PostMessageW(hwnd, WM_RUN_COMMAND, WPARAM(code), LPARAM(0));
                 }
             }
             LRESULT(1)
+        }
+        WM_RUN_COMMAND => {
+            match wp.0 {
+                1 => command(Command::On),
+                2 => command(Command::Off),
+                3 => command(Command::Toggle),
+                _ => {}
+            }
+            LRESULT(0)
         }
         WM_TIMER if wp.0 == TIMER_WATCH => {
             with_app(|a| a.show.tick());

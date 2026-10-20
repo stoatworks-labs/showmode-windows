@@ -170,7 +170,7 @@ pub fn restore_show_plan() -> bool {
     };
     if active_scheme() == Some(copy) {
         let back = original.filter(scheme_exists).unwrap_or(BALANCED);
-        if !ok(unsafe { PowerSetActiveScheme(HKEY::default(), Some(&back)) }) {
+        if !ok(unsafe { PowerSetActiveScheme(HKEY::default(), Some(&back)) }) || active_scheme() != Some(back) {
             showlog::note("power: could not re-activate the original plan");
             return false;
         }

@@ -16,7 +16,9 @@ struct Switch {
     label: &'static str,
     get: SYSTEM_PARAMETERS_INFO_ACTION,
     set: SYSTEM_PARAMETERS_INFO_ACTION,
-    /// SPI_SETSCREENSAVEACTIVE takes the value in uiParam, SPI_SETWINARRANGING in pvParam.
+    /// Also pass the value in pvParam. The value goes in uiParam for both: SPI_SETWINARRANGING
+    /// with it only in pvParam switched Snap off and never back on (winlab, 25H2, 2026-10-20),
+    /// so it gets both, which is the call that worked there.
     in_pv: bool,
 }
 
@@ -40,7 +42,7 @@ fn write(s: &Switch, on: bool) -> bool {
     let flags = SPIF_UPDATEINIFILE | SPIF_SENDCHANGE;
     unsafe {
         if s.in_pv {
-            SystemParametersInfoW(s.set, 0, Some(on as usize as _), flags)
+            SystemParametersInfoW(s.set, on as u32, Some(on as usize as _), flags)
         } else {
             SystemParametersInfoW(s.set, on as u32, None, flags)
         }
@@ -71,7 +73,9 @@ fn restore(s: &Switch) -> bool {
         journal::remove(s.key);
         return true;
     }
-    if read(s) == Some(false) && !write(s, true) {
+    // Read back: a write can report success without taking effect.
+    if read(s) == Some(false) && (!write(s, true) || read(s) != Some(true)) {
+        showlog::note(format!("{}: could not be switched back on", s.label));
         return false;
     }
     showlog::note(format!("{}: back on", s.label));

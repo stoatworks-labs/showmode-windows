@@ -24,6 +24,16 @@ const WALLPAPERS_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Explore
 /// BackgroundType 3 is Windows Spotlight (community-documented, Windows 11).
 const SPOTLIGHT: u32 = 3;
 
+/// Whether Windows Spotlight is the desktop background. Its pictures live in the
+/// IrisService cache; on 25H2 (winlab, 2026-10-20) that path was the only sign of it, with no
+/// BackgroundType value at all.
+fn spotlight(w: &IDesktopWallpaper) -> bool {
+    reg::get_dword(WALLPAPERS_KEY, "BackgroundType") == Some(SPOTLIGHT)
+        || monitors(w)
+            .iter()
+            .any(|m| picture(w, m).is_some_and(|p| p.to_ascii_lowercase().contains(r"\microsoft\irisservice\")))
+}
+
 fn api() -> Option<IDesktopWallpaper> {
     unsafe { CoCreateInstance(&DesktopWallpaper, None, CLSCTX_ALL) }.ok()
 }
@@ -106,7 +116,7 @@ pub fn engage() -> Option<String> {
         return Some("Wallpaper left alone: Windows' wallpaper interface is unavailable".into());
     };
     if !journal::contains("wallpaper") {
-        if reg::get_dword(WALLPAPERS_KEY, "BackgroundType") == Some(SPOTLIGHT) {
+        if spotlight(&w) {
             return Some("Wallpaper left alone: Windows Spotlight can't be put back exactly afterwards".into());
         }
         if is_black(&w) {

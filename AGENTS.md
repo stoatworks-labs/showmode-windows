@@ -18,6 +18,8 @@ Windows behaves differently.
   each app before muting it, keep the watchdog (`--watchdog`, which waits on a process *handle*,
   never a pid) running for as long as anything is muted, and put apps that quit mid-show on the
   pending list so they're unmuted when they next play. Never mute without the watchdog up.
+- **A loopback recording is an audio session too.** Muting it makes the recorder hear silence:
+  the bench's own recorder had to be on the allow-list, and so would OBS capturing the output.
 - **Never touch output volume or a device's mute.** A failure costs the protection, never the
   show.
 - **Undocumented interfaces are looked up at runtime** (QuietHoursSettings) so a Windows that
@@ -25,6 +27,18 @@ Windows behaves differently.
   can't validate** (the Night light and CloudStore blobs): unlike a missing COM class, a
   mis-written blob fails silently by breaking Settings. nightlight-cli was withdrawn in May 2026
   after exactly that.
+- **No COM inside a sent message.** WM_COPYDATA from another process is input-synchronous, and
+  COM refuses outgoing calls during one (RPC_E_CANTCALLOUT_ININPUTSYNCCALL): Do Not Disturb and
+  the wallpaper both reported "unavailable" on winlab. Post the command to the window and run it
+  from the message loop.
+- **Read back every restore.** SPI_SETWINARRANGING with the value in pvParam alone switched Snap
+  off and never back on, and the restore logged success. The value goes in uiParam; restores now
+  read the setting back and keep the journal entry if it didn't take.
+- **Spotlight on 25H2** leaves no BackgroundType value; its pictures live under
+  `...\Microsoft\IrisService\`. Never black out over Spotlight: it can't be put back.
+- **Never take over someone else's showmode: handler.** A Parallels guest registers the Mac's URL
+  schemes (`SharedHostApplication`); Show Mode only writes the scheme when it's absent or already
+  points at a ShowMode.exe.
 - **No admin in v0.1.** Everything is per user. An admin step, when one comes, goes through a
   signed helper in Program Files taking named steps, never a script or a command string, and
   never a service or a highest-privileges scheduled task.
@@ -49,5 +63,14 @@ Windows behaves differently.
   session can't see the desktop, the tray or Do Not Disturb. winlab has no audio hardware: test
   muting on the Parallels guest, by recording a loopback capture with test tones (440 Hz not
   allowed, 1 kHz allowed) and a Goertzel filter, as the macOS AGENTS.md describes.
+- **Driving a bench run:** the tray menu opens through UI Automation (the icon's InvokePattern,
+  as a click; call it on the script's own thread, since a PowerShell script block on a thread-pool
+  thread silently does nothing) and closes with Escape posted to the `#32768` menu window. Windows
+  11 puts new tray icons in the overflow; `IsPromoted` on the icon's entry under
+  `HKCU\Control Panel\NotifyIconSettings` shows it, and that entry belongs to the test copy, so
+  delete it afterwards. On the Parallels guest, `prlctl exec "Windows 11" --current-user` runs in
+  Allan's session and `Y:` is `~/Projects`; it's his own account, so switch off every guard the
+  test doesn't need, play test tones at −40 dBFS rather than the spike's −12, and put back
+  anything the run changed.
 - **Build from the Mac** with `scripts/build.sh` (cargo-xwin). The CRT is linked statically
   (`.cargo/config.toml`) so a show machine needs no Visual C++ redistributable.

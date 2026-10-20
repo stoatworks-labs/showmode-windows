@@ -13,11 +13,11 @@ and a separate app: Windows needed different answers to nearly every question.
 
 **Ctrl+Alt+Shift+F11** starts/ends show mode · or click the masks in the notification area
 
-> **Not released, and not yet run as a whole on Windows.** v0.1 is being built. The mechanisms
-> it uses for power, Do Not Disturb and muting other apps were each tried on real Windows 11 25H2
-> machines in a bench spike before any of this was written, and they worked. The app itself has
-> only been compiled so far. The [user guide](docs/USER-GUIDE.md) says exactly what has and
-> hasn't been checked, and I'll keep it honest as the bench work goes on.
+> **Not released.** v0.1 has been bench-tested on two Windows 11 25H2 machines (an x64 VM and an
+> ARM64 Parallels guest): starting and ending a show, a crash mid-show and the next launch putting
+> everything back, and muting other apps measured by recording the output. It hasn't done a show,
+> and the wallpaper blackout hasn't been run yet. The [user guide](docs/USER-GUIDE.md) says exactly
+> what has and hasn't been checked.
 
 ## What it does
 

@@ -13,10 +13,19 @@ fn exe() -> String {
 }
 
 /// Registers showmode:// for this user, pointing at this copy of the app. Run at every launch,
-/// so moving the app keeps the scheme working.
+/// so moving the app keeps the scheme working. A scheme some other app already handles is left
+/// alone: a Parallels guest, for one, registers the Mac's URL schemes (SharedHostApplication) so
+/// that showmode:// opens the Mac's Show Mode, and taking that over would be rude.
 pub fn register_url_scheme() {
     let exe = exe();
     if exe.is_empty() {
+        return;
+    }
+    let command = reg::get_string(&format!(r"{SCHEME_KEY}\shell\open\command"), "");
+    let exists = command.is_some() || reg::get_string(SCHEME_KEY, "URL Protocol").is_some();
+    let ours = command.as_deref().is_some_and(|c| c.to_ascii_lowercase().contains("showmode.exe"));
+    if exists && !ours {
+        crate::showlog::note("launch: showmode: is already handled by another app; left alone");
         return;
     }
     reg::set_string(SCHEME_KEY, "", "URL:Show Mode");

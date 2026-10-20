@@ -84,7 +84,10 @@ pub fn restore() -> bool {
         return true;
     };
     let Some(s) = settings() else { return false };
-    if selected(&s).as_deref() == Some(PRIORITY_ONLY) && !select(&s, &original) {
+    if selected(&s).as_deref() == Some(PRIORITY_ONLY)
+        && (!select(&s, &original) || selected(&s).as_deref() != Some(original.as_str()))
+    {
+        showlog::note("dnd: could not be put back");
         return false;
     }
     showlog::note(format!("dnd: put back to {original}"));

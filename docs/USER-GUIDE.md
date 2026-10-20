@@ -5,24 +5,37 @@ setting back how you had it. One click (or **Ctrl+Alt+Shift+F11**) stops the PC 
 notifications landing on an output, blacks out the wallpaper so your desktop never appears on the
 projector, and can mute every app that isn't the show.
 
-> **Status (2026-10-20): not released, and the app itself hasn't run on Windows yet.**
+> **Status (2026-10-20): not released. Bench-tested on two Windows 11 25H2 machines, not on a
+> show.**
 >
-> **Checked in the bench spike (2026-10-20, Windows 11 25H2, build 26200), before the app was
-> written:** as a standard user, copying the active power plan, setting the lid to do nothing
-> and the display, sleep and hibernate timeouts to never on the copy, switching to it, then
-> switching back and deleting it left the power settings exactly as they were. Turning
-> *require sign-in on wake* off needed admin, so v0.1 doesn't. Do Not Disturb went on and off
-> through the same interface Settings uses, without admin; the clock's badge, the Settings page
-> and a test notification all agreed. Muting an app by its audio session silenced it in a
-> recording of the output (1 kHz allowed at −12 dB, 440 Hz muted below −120 dB), caught a new
-> app before its first sound, and stayed muted after the muting process was killed and after the
-> app was relaunched. A watchdog holding a handle to the muting process unmuted everything the
-> moment it died.
+> **Checked on winlab** (Windows 11 Pro 25H2, build 26200, x64 VM, one display, run with the
+> token a standard user gets): the app starting in the signed-in session, the tray icon in both
+> states on a light taskbar, the menu (opened through the icon), one copy only, and
+> `showmode://on` and `off` handed over from a second copy. Starting a show took the keep-awake
+> request, switched to a copy of the power plan, turned Snap off, turned Do Not Disturb on
+> (priority only, and Windows' own reading agreed), hid crash dialogs, and left the wallpaper alone
+> because it was Windows Spotlight, saying so in the note. Ending it put every one back exactly as
+> found: the original plan active and the copy deleted, Snap on, Do Not Disturb off, the crash
+> setting gone. Killing the app outright mid-show left everything changed, as it should, and the
+> next launch found the journal, put it all back and said so. Ctrl+Alt+Shift+F11 registered (the
+> menu shows it), but nobody pressed it.
 >
-> **Not checked yet:** everything about the app itself: the tray icon and menu, the hotkey, the
-> showmode: URL, the journal and every restore path (ending the show, quitting, killing it and
-> relaunching, a restart mid-show), the screen saver, Snap, crash-dialog and wallpaper guards,
-> the pending-unmute list, Windows 11 24H2, and ARM64 beyond the spike's audio test.
+> **Checked on a Parallels guest** (Windows 11 25H2, ARM64), recording the output with test tones
+> at −40 dBFS: with muting on, the allowed app's 1 kHz tone stayed at −40 dB while the 440 Hz app
+> dropped below −120 dB, and so did a second 440 Hz app opened mid-show. Ending the show brought
+> both back and the watchdog went with it. Killing Show Mode mid-show unmuted the running app at
+> once. An app that had quit while muted came back muted when relaunched (Windows had kept the
+> mute), and was unmuted the moment Show Mode was relaunched.
+>
+> **Fixed during that bench:** a command handed over by a showmode: URL couldn't reach Do Not
+> Disturb or the wallpaper; Snap didn't come back on at the end (it did once that was fixed, and
+> the restore now reads the setting back); Spotlight wasn't recognised on 25H2; and Show Mode took
+> over a showmode: handler that belonged to something else.
+>
+> **Not checked yet:** turning off a screen saver that is actually on (winlab has none); the
+> wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
+> Login; Finish Restoring; a restart or sign-out mid-show; more than one display; Windows 11 24H2;
+> and a real show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
 
@@ -77,6 +90,9 @@ playing, and remembers your choices.
   thing Windows does better than the Mac here.
 - **Apps that play through ASIO or exclusive mode** (a lot of show and audio software) bypass
   Windows' mixer, so they can't be muted, and they're never muted by accident either.
+- **Apps that record or stream the output are muted too** unless they're ticked. A recording of
+  the output (OBS's desktop audio, say) is an audio session like any other, and a muted one
+  records silence. Tick it under **Allowed to Play** if it should hear the show.
 - **Nothing is turned down.** The output's volume and mute are never touched.
 - **Windows remembers a mute.** An app muted by Show Mode would stay muted, even after a crash and
   even the next time it opens. So a small watchdog runs alongside Show Mode while apps are muted
@@ -95,6 +111,9 @@ ShowMode.exe showmode://on
 The others are `showmode://off` and `showmode://toggle`. Companion's shell action can run that
 on the same PC. A copy of Show Mode started with a command hands it to the running one and
 leaves.
+
+If another app already handles `showmode:` (a Parallels guest passes it to the Mac's Show Mode,
+for one), Show Mode leaves that alone, and `ShowMode.exe showmode://on` still works.
 
 ## Putting things back
 
