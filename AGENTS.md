@@ -47,7 +47,9 @@ Windows behaves differently.
   the blob's shape checks out; anything else reads as unknown and reports nothing.
 - **Read back every restore.** SPI_SETWINARRANGING with the value in pvParam alone switched Snap
   off and never back on, and the restore logged success. The value goes in uiParam; restores now
-  read the setting back and keep the journal entry if it didn't take.
+  read the setting back and keep the journal entry if it didn't take. A read can lag a write
+  that took: Do Not Disturb read back the old profile for up to 50 ms on winlab, so its
+  read-back retries for a second before the entry stays.
 - **Spotlight on 25H2** leaves no BackgroundType value; its pictures live under
   `...\Microsoft\IrisService\`. Never black out over Spotlight: it can't be put back.
 - **Never take over someone else's showmode: handler.** A Parallels guest registers the Mac's URL

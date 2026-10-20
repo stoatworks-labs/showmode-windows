@@ -63,9 +63,18 @@ waiting Windows restart above all.
 > because the five-second check spaced the retries exactly far enough apart for the fight limit
 > never to trip, so two failures in a row now stand the lock down too. Windows' Duplicate across
 > two graphics adapters couldn't be split one screen at a time, so Show Mode now uses Windows'
-> extended layout for that. The taskbar check missed the Windows default. **Seen once:** after
-> the Duplicate test, ending the show couldn't read Do Not Disturb back as off, so it stayed in
-> the journal; the next launch found it already off.
+> extended layout for that. The taskbar check missed the Windows default.
+>
+> **Do Not Disturb and Windows' Duplicate, checked on winlab** (x64 build, standard-user token,
+> the same two virtual screens). While the screens were duplicated, Windows' own "when
+> duplicating your display" rule put an alarms-only Do Not Disturb over Show Mode's priority-only
+> one; it went when the display lock split the screens 1.5 seconds later. With the lock off and
+> the Duplicate still up, ending the show turned Do Not Disturb off, Windows' alarms-only one
+> with it, but the build before this couldn't read it back as off straight away: it kept it in
+> the journal, and the next launch found it already off. That happened once in the display lock
+> bench and once here. The read-back now tries again for up to a second: of five ends of a show
+> during a Duplicate, four read back at once and one after 50 ms, and one start of a show needed
+> 50 ms too.
 >
 > **Not checked yet:** turning off a screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
@@ -110,7 +119,7 @@ Untick any guard in **What Show Mode Disables**. A change there takes effect at 
 | Prevent display & system sleep | Holds a power request, the way a video player does. It goes with the app, so a crash can't leave a PC that never sleeps. Windows still ends it on a lid close, the power button, Start > Sleep and the lock screen, which is what the next guard is for. |
 | Show power plan | Switches to a copy of your active power plan with the lid set to do nothing and no display, sleep or hibernate timeouts, so a laptop driving a projector keeps going with its lid shut. Your own plan is never edited; at the end it's switched back and the copy deleted. If you pick another plan mid-show, your choice stands. |
 | Turn off the screen saver | Only if it's on. |
-| Do Not Disturb | Turns on Do Not Disturb, so no notification banner lands on an output. Whatever it lets through (alarms, reminders and the apps you've set as priority in Settings > System > Notifications) still gets through, so check that list on the show machine. |
+| Do Not Disturb | Turns on Do Not Disturb, so no notification banner lands on an output. Whatever it lets through (alarms, reminders and the apps you've set as priority in Settings > System > Notifications) still gets through, so check that list on the show machine. Ending a show while the screens are duplicated also ends the Do Not Disturb that Windows' own "when duplicating your display" rule turned on, as switching it off by hand would. |
 | Turn off Snap | Windows stop snapping to the screen edges, the Snap layouts box stops appearing over the maximise button, and dragging a window to the top no longer maximises it. |
 | Hide app crash dialogs | When an app crashes, Windows can put a "stopped working" window over everything. This keeps it away; the crash report is still saved. |
 | Black out desktop wallpaper | Paints the desktop black on every screen, including one plugged in mid-show, so an extended desktop never shows your wallpaper on the projector. Your pictures, their position and a running slideshow come back at the end. With Windows Spotlight as the background it's left alone, because Spotlight can't be put back exactly. |
