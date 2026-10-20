@@ -6,8 +6,10 @@
 //! length byte sits just before it. Each is checked for that shape before anything is read from
 //! it, and anything else reads as unknown rather than as a guess.
 //!
-//! - The state record starts 10 00 when Night light is on and goes straight to D0 0A when it's
-//!   off; its length is 0x15 or 0x13 to match (the byte nightlight-cli read at offset 18).
+//! - The state record starts 10 00 when Night light is on. Off, it goes straight to D0 0A when
+//!   it was switched off by hand, or straight to its C6 14 timestamp when its schedule switched
+//!   it off (both seen on the Parallels guest). Its length is 0x15, 0x13 or 0x10 to match (the
+//!   byte nightlight-cli read at offset 18).
 //! - The settings record starts 02 01 when the schedule is on.
 
 const MAGIC: [u8; 4] = [0x43, 0x42, 0x01, 0x00];
@@ -28,7 +30,7 @@ pub fn night_light_on(state: &[u8]) -> Option<bool> {
     let r = record(state)?;
     if r.starts_with(&[0x10, 0x00]) {
         Some(true)
-    } else if r.starts_with(&[0xd0, 0x0a]) {
+    } else if r.starts_with(&[0xd0, 0x0a]) || r.starts_with(&[0xc6, 0x14]) {
         Some(false)
     } else {
         None
@@ -78,6 +80,25 @@ mod tests {
         let mut long = OFF.to_vec();
         long[18] = 0x7f;
         assert_eq!(night_light_on(&long), None, "a length past the end");
+    }
+
+    /// Read off the Parallels guest (ARM64, 25H2) while Settings switched Night light around.
+    #[test]
+    fn reads_real_blobs() {
+        let blob = |s: &str| s.split(' ').map(|b| u8::from_str_radix(b, 16).unwrap()).collect::<Vec<u8>>();
+        let on = blob("43 42 01 00 0a 02 01 00 2a 06 a3 e3 dc d6 06 2a 2b 0e 15 43 42 01 00 10 00 d0 0a 02 c6 14 d4 d2 9c 88 bd 8e d8 ee 01 00 00 00 00");
+        let off = blob("43 42 01 00 0a 02 01 00 2a 06 b1 e3 dc d6 06 2a 2b 0e 13 43 42 01 00 d0 0a 02 c6 14 e0 c5 cf cb bd 8e d8 ee 01 00 00 00 00");
+        let off_by_schedule = blob("43 42 01 00 0a 02 01 00 2a 06 dd e2 dc d6 06 2a 2b 0e 10 43 42 01 00 c6 14 c1 8d b1 bb ba 8e d8 ee 01 00 00 00 00");
+        let never_used = blob("43 42 01 00 0a 02 01 00 2a 2a 00 00 00");
+        assert_eq!(night_light_on(&on), Some(true));
+        assert_eq!(night_light_on(&off), Some(false));
+        assert_eq!(night_light_on(&off_by_schedule), Some(false));
+        assert_eq!(night_light_on(&never_used), None);
+
+        let scheduled = blob("43 42 01 00 0a 02 01 00 2a 06 dd e2 dc d6 06 2a 2b 0e 17 43 42 01 00 02 01 ca 14 0e 15 00 ca 1e 0e 07 00 ca 32 00 ca 3c 00 00 00 00 00");
+        let unscheduled = blob("43 42 01 00 0a 02 01 00 2a 06 8b e3 dc d6 06 2a 2b 0e 15 43 42 01 00 ca 14 0e 15 00 ca 1e 0e 07 00 ca 32 00 ca 3c 00 00 00 00 00");
+        assert_eq!(night_light_scheduled(&scheduled), Some(true));
+        assert_eq!(night_light_scheduled(&unscheduled), Some(false));
     }
 
     #[test]
