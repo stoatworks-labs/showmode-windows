@@ -8,7 +8,9 @@
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod cloudstore;
 mod journal;
+mod layout;
 mod paths;
 mod settings;
 mod showlog;
@@ -22,6 +24,8 @@ mod controller;
 #[cfg(windows)]
 mod crashdialogs;
 #[cfg(windows)]
+mod display;
+#[cfg(windows)]
 mod dnd;
 #[cfg(windows)]
 mod icons;
@@ -31,6 +35,8 @@ mod integration;
 mod note;
 #[cfg(windows)]
 mod power;
+#[cfg(windows)]
+mod preflight;
 #[cfg(windows)]
 mod reg;
 #[cfg(windows)]

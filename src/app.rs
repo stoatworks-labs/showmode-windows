@@ -6,8 +6,9 @@ use crate::controller::Controller;
 use crate::integration::{self, Command};
 use crate::settings::{self, Guard};
 use crate::util::{list, wide};
-use crate::{audio, icons, journal, note, paths, showlog};
+use crate::{audio, icons, journal, note, paths, preflight, showlog};
 use std::cell::RefCell;
+use std::time::{Duration, Instant};
 use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::System::DataExchange::COPYDATASTRUCT;
@@ -30,6 +31,10 @@ const NIN_KEYSELECT: u32 = 0x401;
 const TRAY_ID: u32 = 1;
 const HOTKEY_TOGGLE: i32 = 1;
 const TIMER_WATCH: usize = 1;
+/// A second after the last WM_DISPLAYCHANGE: Windows sends several while a screen comes or goes.
+const TIMER_DISPLAY: usize = 2;
+/// How long the note stays up when a restart is waiting.
+const URGENT_NOTE_MS: u32 = 20_000;
 
 // Menu command ids.
 const ID_TOGGLE: usize = 1;
@@ -38,6 +43,7 @@ const ID_LOGIN: usize = 3;
 const ID_LOG: usize = 4;
 const ID_ABOUT: usize = 5;
 const ID_QUIT: usize = 6;
+const ID_UPDATE: usize = 7;
 const ID_GUARD: usize = 100;
 const ID_APP: usize = 200;
 
@@ -49,6 +55,8 @@ struct App {
     hotkey_ok: bool,
     /// The names behind the Allowed to Play items, by position, from the last menu built.
     menu_apps: Vec<String>,
+    /// The last WM_DISPLAYCHANGE, so the five-second check never acts mid-change.
+    display_changed: Option<Instant>,
 }
 
 thread_local! {
@@ -94,7 +102,15 @@ pub fn run(first_command: Option<Command>) {
         }
         APP.with(|a| {
             *a.borrow_mut() =
-                Some(App { hwnd, show: Controller::default(), icon: None, taskbar_created, hotkey_ok, menu_apps: Vec::new() })
+                Some(App {
+                    hwnd,
+                    show: Controller::default(),
+                    icon: None,
+                    taskbar_created,
+                    hotkey_ok,
+                    menu_apps: Vec::new(),
+                    display_changed: None,
+                })
         });
         integration::register_url_scheme();
         update_tray(true);
@@ -148,9 +164,37 @@ fn toggle() {
         }
     }
     update_tray(false);
-    if !warnings.is_empty() {
-        let head = if engaged { "Show Mode is on, but:" } else { "Show Mode is off." };
-        note::show(&format!("{head}\n{}", warnings.join("\n")));
+    if engaged {
+        // What couldn't be applied, then what Show Mode can only point out. A waiting restart
+        // leads, and keeps the note up longer.
+        let checks = preflight::items();
+        for c in &checks {
+            showlog::note(format!("check: {}", c.text));
+        }
+        let urgent: Vec<String> = checks.iter().filter(|c| c.urgent).map(|c| format!("⚠ {}", c.text)).collect();
+        let lines: Vec<String> = urgent
+            .iter()
+            .cloned()
+            .chain(warnings.iter().cloned())
+            .chain(checks.iter().filter(|c| !c.urgent).map(|c| c.text.clone()))
+            .collect();
+        if !lines.is_empty() {
+            let text = format!("Show Mode is on, but:\n{}", lines.join("\n"));
+            if urgent.is_empty() {
+                note::show(&text);
+            } else {
+                note::show_for(&text, URGENT_NOTE_MS);
+            }
+        }
+    } else if !warnings.is_empty() {
+        note::show(&format!("Show Mode is off.\n{}", warnings.join("\n")));
+    }
+}
+
+/// Puts the display layout right if the display lock is on, and says so if it stands down.
+fn display_check(why: &str) {
+    if let Some(problem) = with_app(|a| a.show.enforce_display(why)).flatten() {
+        note::show(&problem);
     }
 }
 
@@ -232,9 +276,34 @@ fn show_menu(x: i32, y: i32) -> usize {
         if unfinished {
             item(menu, ID_FINISH, "Finish Restoring", false, true);
         }
+        // A waiting restart leads, whether or not a show is running, and opens Windows Update.
+        let checks = preflight::items();
+        for c in checks.iter().filter(|c| c.urgent) {
+            item(menu, ID_UPDATE, &format!("⚠ {}", c.text), false, true);
+        }
         for w in &warnings {
             item(menu, 0, &format!("⚠ {w}"), false, false);
         }
+        // While a show runs, the other checks that can change mid-show.
+        for c in checks.iter().filter(|c| engaged && c.live && !c.urgent) {
+            item(menu, 0, &format!("⚠ {}", c.text), false, false);
+        }
+        let checks_menu = CreatePopupMenu().unwrap();
+        for c in &checks {
+            item(checks_menu, 0, &format!("⚠ {}", c.text), false, false);
+        }
+        if checks.is_empty() {
+            item(checks_menu, 0, "Nothing to look at", false, false);
+        }
+        separator(checks_menu);
+        for line in [
+            "Before doors: open every show app once, so a Windows Firewall prompt",
+            "comes now and not mid-show, and plug in every screen you'll use.",
+        ] {
+            item(checks_menu, 0, line, false, false);
+        }
+        let title = if checks.is_empty() { "Pre-show Checks".to_string() } else { format!("Pre-show Checks ({})", checks.len()) };
+        submenu(menu, checks_menu, &title);
         separator(menu);
 
         let guards = CreatePopupMenu().unwrap();
@@ -301,6 +370,9 @@ fn menu_command(id: usize) {
             MessageBoxW(None, PCWSTR(text.as_ptr()), w!("About Show Mode"), MB_OK | MB_ICONINFORMATION);
         },
         ID_QUIT => quit(),
+        ID_UPDATE => unsafe {
+            ShellExecuteW(None, w!("open"), w!("ms-settings:windowsupdate"), None, None, SW_SHOWNORMAL);
+        },
         id if (ID_GUARD..ID_GUARD + Guard::ALL.len()).contains(&id) => {
             let g = Guard::ALL[id - ID_GUARD];
             settings::set_on(g, !settings::is_on(g));
@@ -377,11 +449,25 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         }
         WM_TIMER if wp.0 == TIMER_WATCH => {
             with_app(|a| a.show.tick());
+            // A backstop for a change that raised no WM_DISPLAYCHANGE, never in the middle of one.
+            let quiet = with_app(|a| a.display_changed.is_none_or(|t| t.elapsed() > Duration::from_secs(3))).unwrap_or(false);
+            if quiet {
+                display_check("five-second check");
+            }
+            LRESULT(0)
+        }
+        WM_TIMER if wp.0 == TIMER_DISPLAY => {
+            let _ = KillTimer(hwnd, TIMER_DISPLAY);
+            // A screen plugged in mid-show gets the black wallpaper, and the layout is put right.
+            with_app(|a| a.show.tick());
+            display_check("after a display change");
             LRESULT(0)
         }
         WM_DISPLAYCHANGE => {
-            // A screen plugged in mid-show gets the black wallpaper straight away.
-            with_app(|a| a.show.tick());
+            // Sent, not posted, so nothing that calls COM runs here (see WM_COPYDATA): the work
+            // waits for the timer, which also lets a burst of changes settle.
+            with_app(|a| a.display_changed = Some(Instant::now()));
+            SetTimer(hwnd, TIMER_DISPLAY, 1000, None);
             DefWindowProcW(hwnd, msg, wp, lp)
         }
         WM_SETTINGCHANGE => {
@@ -426,6 +512,7 @@ pub fn status() -> String {
     lines.push(crate::spi::describe());
     lines.push(crate::dnd::describe());
     lines.push(crate::wallpaper::describe());
+    lines.push(crate::display::describe());
     let apps = audio::current_apps();
     lines.push(format!(
         "audio sessions: {}",
@@ -439,5 +526,6 @@ pub fn status() -> String {
     for g in Guard::ALL {
         lines.push(format!("guard {:<14} {}", g.id(), if settings::is_on(g) { "on" } else { "off" }));
     }
+    lines.push(preflight::describe());
     lines.join("\n")
 }

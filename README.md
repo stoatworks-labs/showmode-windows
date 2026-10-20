@@ -15,9 +15,9 @@ and a separate app: Windows needed different answers to nearly every question.
 
 > **Not released.** v0.1 has been bench-tested on two Windows 11 25H2 machines (an x64 VM and an
 > ARM64 Parallels guest): starting and ending a show, a crash mid-show and the next launch putting
-> everything back, and muting other apps measured by recording the output. It hasn't done a show,
-> and the wallpaper blackout hasn't been run yet. The [user guide](docs/USER-GUIDE.md) says exactly
-> what has and hasn't been checked.
+> everything back, muting other apps measured by recording the output, and the display lock with
+> two virtual screens. It hasn't done a show, and the wallpaper blackout hasn't been run yet. The
+> [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
 
 ## What it does
 
@@ -30,6 +30,7 @@ and a separate app: Windows needed different answers to nearly every question.
 | Snap | `SPI_SETWINARRANGING`: windows stop snapping to edges, Snap layouts and drag-to-top maximising |
 | App crash dialogs | Windows Error Reporting `DontShowUI` (per user); reports are still saved |
 | Desktop wallpaper | black on every screen through `IDesktopWallpaper`, including screens plugged in mid-show; pictures, position, colour and slideshow are journalled and put back. With Windows Spotlight as the background it's left alone, since Spotlight can't be put back exactly |
+| Display lock | the display that was main at the start stays main, and a screen that starts mirroring mid-show is split back out to extended, through the CCD API (`SetDisplayConfig`). Every correction is temporary, never saved to Windows' display database; a layout something keeps reverting is let go after four corrections inside twenty seconds |
 | Other apps' sound *(off by default)* | every app not ticked under **Allowed to Play** is muted, session by session, on every output, including sound that's already playing. Windows remembers a per-app mute even after the app that set it has died, so a watchdog process unmutes everything the moment Show Mode does |
 
 Before changing anything it writes down what was there, in `%LOCALAPPDATA%\ShowMode\journal.json`.
@@ -37,9 +38,14 @@ Ending the show puts back those values and nothing else. Quitting does the same,
 crashes or the PC restarts mid-show, the next launch finds the journal and finishes the job.
 Nothing in v0.1 needs admin.
 
+**Pre-show checks** list what Show Mode can't switch off, only point out: above all a waiting
+Windows restart (Windows Update restarts on its own deadline, and no app can refuse it), then
+battery, Energy saver, Night light, the taskbar on every display, Windows minimising windows when
+a monitor drops out, a Public network (which hides NDI and Dante) and a Remote Desktop session.
+They only read.
+
 Not in v0.1, and on the list: keeping Windows-key shortcuts and the cursor off the audience's
-screens, the display lock, pre-show checks (a pending update restart, mostly), accessibility
-hotkeys, and the background-work guards.
+screens, accessibility hotkeys, and the background-work guards.
 
 ## Driving it from somewhere else
 

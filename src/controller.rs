@@ -4,7 +4,7 @@
 
 use crate::settings::{self, Guard};
 use crate::watchdog::Watchdog;
-use crate::{audio, crashdialogs, dnd, journal, power, showlog, spi, util, wallpaper};
+use crate::{audio, crashdialogs, display, dnd, journal, power, showlog, spi, util, wallpaper};
 use serde_json::json;
 
 #[derive(Default)]
@@ -12,6 +12,7 @@ pub struct Controller {
     pub engaged: bool,
     keep_awake: Option<power::KeepAwake>,
     watchdog: Option<Watchdog>,
+    display: Option<display::Lock>,
     /// From the last engage: guards that couldn't apply. From a restore: what isn't back yet.
     pub warnings: Vec<String>,
 }
@@ -24,6 +25,7 @@ const RESTORE_LABELS: &[(&str, &str)] = &[
     ("dnd", "Do Not Disturb"),
     ("crashDialogs", "crash dialogs"),
     ("wallpaper", "the wallpaper"),
+    ("displayLayout", "the main display"),
     ("audioMuted", "muted apps"),
 ];
 
@@ -68,6 +70,12 @@ impl Controller {
         if settings::is_on(Guard::Wallpaper) {
             warn(wallpaper::engage());
         }
+        if settings::is_on(Guard::DisplayLayout) {
+            match display::Lock::start() {
+                Ok(lock) => self.display = Some(lock),
+                Err(w) => warn(Some(w)),
+            }
+        }
         if settings::is_on(Guard::MuteOtherApps) {
             // The watchdog first, so there is never a muted app with nothing to unmute it.
             self.watchdog = Watchdog::spawn();
@@ -89,6 +97,7 @@ impl Controller {
     /// Finish Restoring and the next launch.
     pub fn restore(&mut self) {
         self.keep_awake = None;
+        self.display = None;
         journal::load();
         if !journal::exists() {
             self.watchdog = None;
@@ -105,6 +114,7 @@ impl Controller {
         spi::restore_snap();
         dnd::restore();
         crashdialogs::restore();
+        display::restore();
         wallpaper::restore();
 
         // Each restore removes its own entry once it's done; what's left needs another try.
@@ -155,5 +165,16 @@ impl Controller {
         if self.engaged && journal::contains("wallpaper") {
             wallpaper::apply_black();
         }
+    }
+
+    /// After a display change (and every five seconds): puts the display layout right. Returns
+    /// the problem if the display lock has just stood down, which stays listed in the menu.
+    pub fn enforce_display(&mut self, why: &str) -> Option<String> {
+        if !self.engaged {
+            return None;
+        }
+        let problem = self.display.as_mut()?.enforce(why)?;
+        self.warnings.push(problem.clone());
+        Some(problem)
     }
 }

@@ -71,6 +71,11 @@ fn font(dpi: u32) -> HFONT {
 
 /// Shows `text` for a few seconds, bottom right of the primary display's work area.
 pub fn show(text: &str) {
+    show_for(text, SHOW_MS);
+}
+
+/// Shows `text` for `ms` milliseconds (or until clicked).
+pub fn show_for(text: &str, ms: u32) {
     let hwnd = NOTE.with(|n| {
         let mut n = n.borrow_mut();
         n.1 = text.to_string();
@@ -109,7 +114,7 @@ pub fn show(text: &str) {
             SWP_NOACTIVATE | SWP_SHOWWINDOW,
         );
         let _ = InvalidateRect(hwnd, None, true);
-        SetTimer(hwnd, TIMER_HIDE, SHOW_MS, None);
+        SetTimer(hwnd, TIMER_HIDE, ms, None);
     }
 }
 

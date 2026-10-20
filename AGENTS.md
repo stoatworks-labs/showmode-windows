@@ -31,6 +31,20 @@ Windows behaves differently.
   COM refuses outgoing calls during one (RPC_E_CANTCALLOUT_ININPUTSYNCCALL): Do Not Disturb and
   the wallpaper both reported "unavailable" on winlab. Post the command to the window and run it
   from the message loop.
+- **WM_DISPLAYCHANGE is sent too.** Its handler only notes the time and sets a timer; the
+  wallpaper and display-lock work runs on the timer, a second after the last change.
+- **Display corrections are temporary.** `SetDisplayConfig` never gets `SDC_SAVE_TO_DATABASE`,
+  so the layouts Windows remembers for each set of screens stay the user's. Keep both limits: four
+  corrections inside twenty seconds (the macOS fight limit), and two in a row that fail or don't
+  hold. Without the second, a correction that can't work was retried all show: the five-second
+  check spaced the retries so the first limit never tripped (winlab, 2026-10-20).
+- **A mirror is screens at the same origin, not a shared source.** Windows' Duplicate across two
+  adapters put all three of winlab's screens on the virtual adapter's one source, with the other
+  adapter's monitor under a made-up target id, and left no source free to split one off. Key
+  monitors by device path, and when a split can't be built by hand, fall back to
+  `SDC_TOPOLOGY_EXTEND` (unsaved), but never over a mirror that was there at the start.
+- **Pre-show checks only read.** Night light's state is parsed from its CloudStore blob only after
+  the blob's shape checks out; anything else reads as unknown and reports nothing.
 - **Read back every restore.** SPI_SETWINARRANGING with the value in pvParam alone switched Snap
   off and never back on, and the restore logged success. The value goes in uiParam; restores now
   read the setting back and keep the journal entry if it didn't take.

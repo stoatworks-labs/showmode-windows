@@ -3,7 +3,9 @@
 Show Mode is a notification-area app that locks a Windows PC down for a show, then puts every
 setting back how you had it. One click (or **Ctrl+Alt+Shift+F11**) stops the PC sleeping, stops
 notifications landing on an output, blacks out the wallpaper so your desktop never appears on the
-projector, and can mute every app that isn't the show.
+projector, keeps the projector from becoming the main display or a mirror, and can mute every app
+that isn't the show. Before doors, its pre-show checks point out what it can't switch off, a
+waiting Windows restart above all.
 
 > **Status (2026-10-20): not released. Bench-tested on two Windows 11 25H2 machines, not on a
 > show.**
@@ -32,10 +34,44 @@ projector, and can mute every app that isn't the show.
 > the restore now reads the setting back); Spotlight wasn't recognised on 25H2; and Show Mode took
 > over a showmode: handler that belonged to something else.
 >
+> **The display lock, checked on winlab** (x64 build, standard-user token) with the Virtual
+> Display Driver adding two 800×600 screens beside its own 1280×800 one. Mid-show, a virtual
+> screen made main was moved back about a second later. The two virtual screens mirrored onto one
+> desktop were split back out a second later, and so was Windows' own Duplicate of all three. Both
+> virtual screens dropped out, then came back in Duplicate, which Windows had been set to
+> remember for them; they were extended again two seconds after they reappeared. A mirror that was there at the start was
+> left alone through the show and after it. Both screens dropped out and came back for half a
+> second each: nothing needed correcting, and nothing was done. Something moving the main display
+> every 2.5 seconds got four corrections, then the lock stood down and said so in a note and the
+> menu. Ending that show made the original display main again, and so did the next launch after
+> the app was killed mid-show and a virtual screen made main. After every correction, the layout
+> Windows remembers for those screens read back unchanged.
+>
+> **The pre-show checks, checked on winlab:** every check read in under 40 ms with a
+> standard-user token. Its Public network and "minimise windows when a monitor is disconnected"
+> were reported as they were. A RebootRequired key, added for the test and then removed, put the
+> restart warning first in the note (which stayed up 20 seconds) and at the top of the menu, and
+> both went with the key. The taskbar on all displays (with no setting, which showed a taskbar on
+> all three screens, and with it set) and the minimise setting switched off each changed the list.
+> **Not checked:** a restart that the Windows Update Agent or the servicing stack itself reports
+> (winlab had none, and both read "no"); battery and Energy saver (winlab is a VM on mains); Night
+> light on or scheduled (winlab's display adapter can't do Night light: its stored schedule read
+> as off, matching its settings, and its never-used state read as unknown, which reports
+> nothing); a Remote Desktop session.
+>
+> **Fixed during that bench:** a correction that couldn't work was retried for the whole show,
+> because the five-second check spaced the retries exactly far enough apart for the fight limit
+> never to trip, so two failures in a row now stand the lock down too. Windows' Duplicate across
+> two graphics adapters couldn't be split one screen at a time, so Show Mode now uses Windows'
+> extended layout for that. The taskbar check missed the Windows default. **Seen once:** after
+> the Duplicate test, ending the show couldn't read Do Not Disturb back as off, so it stayed in
+> the journal; the next launch found it already off.
+>
 > **Not checked yet:** turning off a screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
-> Login; Finish Restoring; a restart or sign-out mid-show; more than one display; Windows 11 24H2;
-> and a real show.
+> Login; Finish Restoring; a restart or sign-out mid-show; the display lock with a real projector,
+> a laptop's built-in screen, or a laptop with two GPUs; the ARM64 build of the display lock and
+> the checks; Windows 11 24H2; and a real show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
 
@@ -61,7 +97,9 @@ display, not the projector.
 
 While a show is running, an ordinary restart or sign-out stops at Windows' list of apps holding
 it up, with Show Mode's reason. That's a courtesy for a slipped click, not a guard: a restart
-forced by Windows Update doesn't ask. Check for a waiting update before doors.
+forced by Windows Update doesn't ask. So Show Mode checks for a waiting restart: if there is one,
+it leads the note when the show starts and sits at the top of the menu (see
+[Pre-show checks](#pre-show-checks)). Restart before doors.
 
 ## What it turns off
 
@@ -76,7 +114,38 @@ Untick any guard in **What Show Mode Disables**. A change there takes effect at 
 | Turn off Snap | Windows stop snapping to the screen edges, the Snap layouts box stops appearing over the maximise button, and dragging a window to the top no longer maximises it. |
 | Hide app crash dialogs | When an app crashes, Windows can put a "stopped working" window over everything. This keeps it away; the crash report is still saved. |
 | Black out desktop wallpaper | Paints the desktop black on every screen, including one plugged in mid-show, so an extended desktop never shows your wallpaper on the projector. Your pictures, their position and a running slideshow come back at the end. With Windows Spotlight as the background it's left alone, because Spotlight can't be put back exactly. |
+| Lock main display & keep new screens extended | Keeps the display that was main at the start as the main one, and splits a screen that starts mirroring mid-show back out to extended. See below. |
 | Mute apps not allowed to play | **Off by default.** See below. |
+
+## Keeping the screens where they are
+
+Windows often puts a laptop meeting a projector it hasn't seen before into Duplicate, and a
+projector that drops out and comes back gets whatever layout Windows remembers for it. **Lock
+main display & keep new screens extended** (on by default) holds the layout you started with.
+
+**The main display stays put.** The display that was main when the show started stays main. If
+something makes another screen main during the show, Show Mode moves it back about a second
+later. The arrangement itself is kept: the screens stay where they are relative to each other.
+
+**New mirrors become extended.** Whatever's mirrored when the show starts is taken as
+intentional (a confidence monitor showing the output, say) and left alone. A screen that starts
+mirroring during the show, whether Windows decided to duplicate onto a projector or someone
+pressed Win+P, is split back out to an extended display, to the right of the others, a second
+or two later. When Windows won't split one screen off on its own (a mirror across two graphics
+adapters, as on a laptop with two GPUs), Show Mode asks Windows for its own extended layout for
+those screens instead, unless something was already mirrored when the show started.
+
+Every correction is temporary. Show Mode never saves a layout, so the layouts Windows remembers
+for each set of screens stay yours, and the next time these screens meet, Windows brings back
+its own.
+
+Each correction makes the screens blink for a moment, the way they do in Settings. If something
+keeps undoing the layout (four corrections inside twenty seconds), or a correction doesn't work
+twice running, Show Mode stops, says so in a note and in its menu, and leaves the screens alone
+for the rest of the show.
+
+When the show ends, the display that was main before it becomes main again. Screens split out of
+a mirror stay extended: the mirror was Windows' guess, not yours.
 
 ## Keeping other apps off the PA
 
@@ -99,6 +168,38 @@ playing, and remembers your choices.
   and unmutes them the moment Show Mode goes. An app that was muted and then quit mid-show is
   unmuted the next time it plays, as long as Show Mode is running then (turn on **Launch at
   Login**).
+
+## Pre-show checks
+
+Some things no app can safely switch off. **Pre-show Checks** in the menu lists the ones Show
+Mode finds on this PC, each with the one thing to do about it. It only looks: nothing in the
+checks changes anything.
+
+- **A restart is waiting.** Windows Update restarts a PC on its own deadline, and no app can
+  refuse a forced restart, Show Mode included. So when Windows has a restart waiting (Windows
+  Update says so, or the servicing stack has one pending), it leads the note when a show starts,
+  the note stays up longer, and it sits at the top of the menu whether a show is running or not.
+  Choosing it there opens Windows Update. Restart before doors.
+- **Running on battery**, or **Energy saver** on, which slows the PC down.
+- **Night light on, or scheduled.** It tints every screen, the projector too, and a schedule can
+  switch it on mid-show. Show Mode reads Night light's settings but never writes them: they're
+  kept in a form only Windows can safely change.
+- **The taskbar on every display**, the projector included. Windows 11 does this unless it's
+  switched off in Settings > Personalisation > Taskbar > Taskbar behaviours.
+- **Minimise windows when a monitor is disconnected.** If the projector drops out for a moment,
+  Windows minimises whatever was on it, and it doesn't come back by itself. It's on unless it's
+  unticked in Settings > System > Display > Multiple displays.
+- **A Public network.** Windows blocks discovery on a Public network, so NDI and Dante may find
+  nothing. Make the show network Private in Settings > Network & internet.
+- **A Remote Desktop session.** While someone's connected by Remote Desktop, the PC's own
+  screens show the lock screen.
+
+The ones that can change during the show (a waiting restart, battery, Energy saver, Night light
+coming on, the network, a remote session) also stay at the top of the menu, marked ⚠, while it
+runs.
+
+The menu also reminds you to open every show app once before doors, so a Windows Firewall
+prompt comes then and not mid-show, and to plug in every screen you'll use.
 
 ## Driving it from somewhere else
 
@@ -133,5 +234,6 @@ Show Mode keeps a plain log of what it changes in `%LOCALAPPDATA%\ShowMode\ShowM
 **Open Log** in the menu opens it.
 
 `ShowMode.exe --status` prints what it can see (the active power plan, the screen saver, Snap,
-Do Not Disturb, the wallpaper, apps with sound, the journal) without changing anything.
+Do Not Disturb, the wallpaper, the displays and the layout Windows remembers for them, apps with
+sound, the journal, and what each pre-show check read) without changing anything.
 `--status --out <file>` writes it to a file instead.

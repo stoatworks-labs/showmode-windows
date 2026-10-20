@@ -1,12 +1,13 @@
 //! HKEY_CURRENT_USER values: read, write and delete, the way the guards journal them. A value
-//! that is not there reads as None, and restoring None deletes it again.
+//! that is not there reads as None, and restoring None deletes it again. HKEY_LOCAL_MACHINE is
+//! only ever read (the pre-show checks).
 
 use crate::util::wide;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
-    RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_DWORD, REG_SZ, RRF_RT_REG_DWORD,
-    RRF_RT_REG_SZ,
+    RegCloseKey, RegDeleteKeyValueW, RegGetValueW, RegOpenKeyExW, RegSetKeyValueW, HKEY, HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE, KEY_READ, REG_DWORD, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
 };
 
 pub fn get_dword(key: &str, name: &str) -> Option<u32> {
@@ -66,6 +67,45 @@ pub fn get_string(key: &str, name: &str) -> Option<String> {
         let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
         Some(String::from_utf16_lossy(&buf[..end]))
     }
+}
+
+pub fn get_binary(key: &str, name: &str) -> Option<Vec<u8>> {
+    let (k, n) = (wide(key), wide(name));
+    let mut size = 0u32;
+    unsafe {
+        let r = RegGetValueW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), PCWSTR(n.as_ptr()), RRF_RT_REG_BINARY, None, None, Some(&mut size));
+        if r != ERROR_SUCCESS {
+            return None;
+        }
+        let mut buf = vec![0u8; size as usize];
+        let r = RegGetValueW(
+            HKEY_CURRENT_USER,
+            PCWSTR(k.as_ptr()),
+            PCWSTR(n.as_ptr()),
+            RRF_RT_REG_BINARY,
+            None,
+            Some(buf.as_mut_ptr() as _),
+            Some(&mut size),
+        );
+        if r != ERROR_SUCCESS {
+            return None;
+        }
+        buf.truncate(size as usize);
+        Some(buf)
+    }
+}
+
+/// Whether a key under HKEY_LOCAL_MACHINE is there. Read only.
+pub fn machine_key_exists(key: &str) -> bool {
+    let k = wide(key);
+    let mut h = HKEY::default();
+    let r = unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, PCWSTR(k.as_ptr()), 0, KEY_READ, &mut h) };
+    if r == ERROR_SUCCESS {
+        unsafe {
+            let _ = RegCloseKey(h);
+        }
+    }
+    r == ERROR_SUCCESS
 }
 
 /// An empty `name` sets the key's default value.

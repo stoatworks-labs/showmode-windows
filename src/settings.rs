@@ -15,11 +15,12 @@ pub enum Guard {
     Snap,
     CrashDialogs,
     Wallpaper,
+    DisplayLayout,
     MuteOtherApps,
 }
 
 impl Guard {
-    pub const ALL: [Guard; 8] = [
+    pub const ALL: [Guard; 9] = [
         Guard::Sleep,
         Guard::ShowPlan,
         Guard::ScreenSaver,
@@ -27,6 +28,7 @@ impl Guard {
         Guard::Snap,
         Guard::CrashDialogs,
         Guard::Wallpaper,
+        Guard::DisplayLayout,
         Guard::MuteOtherApps,
     ];
 
@@ -40,6 +42,7 @@ impl Guard {
             Guard::Snap => "snap",
             Guard::CrashDialogs => "crashDialogs",
             Guard::Wallpaper => "wallpaper",
+            Guard::DisplayLayout => "displayLayout",
             Guard::MuteOtherApps => "muteOtherApps",
         }
     }
@@ -53,6 +56,7 @@ impl Guard {
             Guard::Snap => "Turn off Snap (edges, layouts, drag to maximise)",
             Guard::CrashDialogs => "Hide app crash dialogs (reports still saved)",
             Guard::Wallpaper => "Black out desktop wallpaper",
+            Guard::DisplayLayout => "Lock main display & keep new screens extended",
             Guard::MuteOtherApps => "Mute apps not allowed to play",
         }
     }
