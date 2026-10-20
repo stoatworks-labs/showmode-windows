@@ -54,10 +54,9 @@ waiting Windows restart above all.
 > both went with the key. The taskbar on all displays (with no setting, which showed a taskbar on
 > all three screens, and with it set) and the minimise setting switched off each changed the list.
 > **Not checked:** a restart that the Windows Update Agent or the servicing stack itself reports
-> (winlab had none, and both read "no"); battery and Energy saver (winlab is a VM on mains); Night
-> light on or scheduled (winlab's display adapter can't do Night light: its stored schedule read
-> as off, matching its settings, and its never-used state read as unknown, which reports
-> nothing); a Remote Desktop session.
+> (winlab had none, and both read "no"); battery and Energy saver (winlab is a VM on mains, and
+> the Mac under the Parallels guest was on mains too); a Remote Desktop session. winlab's display
+> adapter can't do Night light, so that was checked on the guest.
 >
 > **Fixed during that bench:** a correction that couldn't work was retried for the whole show,
 > because the five-second check spaced the retries exactly far enough apart for the fight limit
@@ -67,11 +66,27 @@ waiting Windows restart above all.
 > the Duplicate test, ending the show couldn't read Do Not Disturb back as off, so it stayed in
 > the journal; the next launch found it already off.
 >
+> **The ARM64 build, checked on the Parallels guest** (standard-user token): `--status` read the
+> one Parallels screen and every pre-show check, in 13 to 29 ms. The Mac's battery shows through
+> to the guest, and on mains it reported nothing. Night light, switched through Settings: turned
+> on, it read as on and the checks listed it; with its schedule on, it read as scheduled and the
+> checks listed that instead; both were put back off. A show with only the display lock on kept
+> the one screen main, had nothing to correct, and ended with everything put back. Killed
+> mid-show, the next launch found the journal and put it back. **Not checked on ARM64:** the
+> display lock with a second screen. Parallels can only give the guest the Mac's own screens (it
+> has one), and Windows wouldn't import the Virtual Display Driver there: with Code Integrity
+> enforced it refused the driver's signature (0x800B0109), even with its root added to the
+> machine's trusted roots for the attempt.
+>
+> **Fixed during that bench:** Night light switched off by its own schedule (Windows stores that
+> state differently) read as unknown instead of off. The checks were right either way, since
+> unknown reports nothing, but it reads as off now.
+>
 > **Not checked yet:** turning off a screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
 > Login; Finish Restoring; a restart or sign-out mid-show; the display lock with a real projector,
-> a laptop's built-in screen, or a laptop with two GPUs; the ARM64 build of the display lock and
-> the checks; Windows 11 24H2; and a real show.
+> a laptop's built-in screen, or a laptop with two GPUs; the display lock on ARM64 with a second
+> screen; Windows 11 24H2; and a real show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
 

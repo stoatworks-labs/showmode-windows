@@ -85,6 +85,10 @@ Windows behaves differently.
   delete it afterwards. On the Parallels guest, `prlctl exec "Windows 11" --current-user` runs in
   Allan's session and `Y:` is `~/Projects`; it's his own account, so switch off every guard the
   test doesn't need, play test tones at −40 dBFS rather than the spike's −12, and put back
-  anything the run changed.
+  anything the run changed. Pass script arguments positionally: prlctl swallows a `-Do`-style
+  switch. `SHOWMODE_DATA_DIR` keeps a test copy's settings, journal and log out of his
+  `%LOCALAPPDATA%`. The guest can't test the display lock with a second screen: the Mac has one,
+  and with Code Integrity enforced the guest refuses the Virtual Display Driver's signature
+  (0x800B0109, even with its root in the machine's Root store). Use winlab for that.
 - **Build from the Mac** with `scripts/build.sh` (cargo-xwin). The CRT is linked statically
   (`.cargo/config.toml`) so a show machine needs no Visual C++ redistributable.
