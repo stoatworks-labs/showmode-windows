@@ -13,11 +13,12 @@ and a separate app: Windows needed different answers to nearly every question.
 
 **Ctrl+Alt+Shift+F11** starts/ends show mode · or click the masks in the notification area
 
-> **Not released.** v0.1 has been bench-tested on two Windows 11 25H2 machines (an x64 VM and an
-> ARM64 Parallels guest): starting and ending a show, a crash mid-show and the next launch putting
-> everything back, muting other apps measured by recording the output, and the display lock with
-> two virtual screens. It hasn't done a show, and the wallpaper blackout hasn't been run yet. The
-> [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
+> **Preview.** v0.1.0 is out for testing, and unsigned. It has been bench-tested on two Windows 11
+> 25H2 machines (an x64 VM and an ARM64 Parallels guest): starting and ending a show, a crash
+> mid-show and the next launch putting everything back, muting other apps measured by recording
+> the output, and the display lock with two virtual screens. It hasn't done a show, and the
+> wallpaper blackout hasn't been run yet, so try it on your own show PC before a show depends on
+> it. The [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
 
 ## What it does
 
@@ -47,6 +48,24 @@ They only read.
 Not in v0.1, and on the list: keeping Windows-key shortcuts and the cursor off the audience's
 screens, accessibility hotkeys, and the background-work guards.
 
+## Installing
+
+Download the zip for your PC from the
+[releases page](https://github.com/stoatworks-labs/showmode-windows/releases): x64 for nearly
+every PC, ARM64 for a Snapdragon laptop or Windows on a Mac. Unzip it somewhere it can stay, such
+as `%LOCALAPPDATA%\Programs\ShowMode`, and run `ShowMode.exe`. There's no installer. Settings and
+the journal live in `%LOCALAPPDATA%\ShowMode`, and the `showmode:` handler follows the program
+wherever it's started from. Launch at Login remembers where it was when you ticked it, so tick it
+again after moving it.
+
+### SmartScreen and Smart App Control
+
+The builds aren't code-signed yet, so the first time you run one, SmartScreen says "Windows
+protected your PC". Click **More info**, then **Run anyway**, and it won't ask again for that
+copy. With Smart App Control switched on, Windows blocks an unsigned app it doesn't know and
+offers no Run anyway, so Show Mode won't start on that PC until it's signed. I haven't had a PC
+with it on to try.
+
 ## Driving it from somewhere else
 
 ```
@@ -69,6 +88,10 @@ scripts/build.sh
 
 That writes x64 and ARM64 executables to `dist/`. On Windows, plain `cargo build --release`
 does it. `swift scripts/make-icons.swift` redraws the icons (it needs a Mac).
+
+<!-- attributions:start -->
+This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
+<!-- attributions:end -->
 
 ## Licence
 

@@ -94,3 +94,15 @@ Windows behaves differently.
   (0x800B0109, even with its root in the machine's Root store). Use winlab for that.
 - **Build from the Mac** with `scripts/build.sh` (cargo-xwin). The CRT is linked statically
   (`.cargo/config.toml`) so a show machine needs no Visual C++ redistributable.
+- **A release is a zip per architecture holding `ShowMode.exe`**, made by `scripts/release.sh`
+  and uploaded by hand with `gh`; no workflow builds it. The executable is never renamed for the
+  download: `register_url_scheme` only takes back a handler whose command names a `ShowMode.exe`,
+  so a versioned name would never update its own registration. Each zip carries `LICENSE.txt` and
+  `THIRD-PARTY-NOTICES.txt`; re-run `scripts/third-party-notices.py` after any `Cargo.lock`
+  change (release.sh refuses while it's stale). Unsigned until there's a certificate (the fleet's
+  RELEASE-CHECKLIST, section 4c), so the guide's SmartScreen paragraph stays until then.
+- **Generated, do not edit:** the README block between the `downloads` markers
+  (`release/gen-downloads.py` in stoatworks-backend), `.github/FUNDING.yml` and
+  `.github/ISSUE_TEMPLATE/` (the backend's sync scripts), `ATTRIBUTIONS.md`
+  (`sync-attributions.py`), `THIRD-PARTY-NOTICES.txt`, and `docs/USER-GUIDE.pdf` (the website's
+  `build_guides.py`).

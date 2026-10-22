@@ -7,8 +7,8 @@ projector, keeps the projector from becoming the main display or a mirror, and c
 that isn't the show. Before doors, its pre-show checks point out what it can't switch off, a
 waiting Windows restart above all.
 
-> **Status (2026-10-20): not released. Bench-tested on two Windows 11 25H2 machines, not on a
-> show.**
+> **Status (2026-10-22): a preview, released at v0.1.0 and unsigned. Bench-tested on two
+> Windows 11 25H2 machines, not on a show.**
 >
 > **Checked on winlab** (Windows 11 Pro 25H2, build 26200, x64 VM, one display, run with the
 > token a standard user gets): the app starting in the signed-in session, the tray icon in both
@@ -91,7 +91,13 @@ waiting Windows restart above all.
 > state differently) read as unknown instead of off. The checks were right either way, since
 > unknown reports nothing, but it reads as off now.
 >
-> **Not checked yet:** turning off a screen saver that is actually on (winlab has none); the
+> **The v0.1.0 downloads, checked on the Parallels guest:** the `ShowMode.exe` from each zip ran
+> `--status` and read every guard and pre-show check, the ARM64 one natively and the x64 one under
+> Windows' emulation. They were built from the same code as the bench runs above, but that's the
+> only run the release files themselves have had.
+>
+> **Not checked yet:** SmartScreen and Smart App Control meeting a downloaded copy; turning off a
+> screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
 > Login; Finish Restoring; a restart or sign-out mid-show; the display lock with a real projector,
 > a laptop's built-in screen, or a laptop with two GPUs; the display lock on ARM64 with a second
@@ -103,7 +109,19 @@ waiting Windows restart above all.
 
 ## Install
 
-There's no release yet. To build it, see the README.
+Download the zip for your PC from the
+[releases page](https://github.com/stoatworks-labs/showmode-windows/releases): x64 for nearly
+every PC, ARM64 for a Snapdragon laptop or Windows on a Mac. Unzip it somewhere it can stay, such
+as `%LOCALAPPDATA%\Programs\ShowMode`, and run `ShowMode.exe`. There's no installer. Settings and
+the journal live in `%LOCALAPPDATA%\ShowMode`, and the `showmode:` handler follows the program
+wherever it's started from. Launch at Login remembers where it was when you ticked it, so tick it
+again after moving it. To update, quit Show Mode, replace `ShowMode.exe` and start it again.
+
+The builds aren't code-signed yet, so the first time you run one, SmartScreen says "Windows
+protected your PC". Click **More info**, then **Run anyway**, and it won't ask again for that
+copy. With Smart App Control switched on, Windows blocks an unsigned app it doesn't know and
+offers no Run anyway, so Show Mode won't start on that PC until it's signed. I haven't had a PC
+with it on to try.
 
 Show Mode needs Windows 11. It lives in the notification area as a pair of theatre masks:
 outlined while show mode is off, filled while it's on. Windows may tuck it under the ^ arrow;
