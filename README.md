@@ -20,6 +20,28 @@ and a separate app: Windows needed different answers to nearly every question.
 > wallpaper blackout hasn't been run yet, so try it on your own show PC before a show depends on
 > it. The [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
 
+<!-- downloads:start -->
+
+## Download
+
+**[v0.1.0](https://github.com/stoatworks-labs/showmode-windows/releases/tag/v0.1.0)** — prebuilt for Windows. Pick your platform:
+
+<details>
+<summary><b>Windows</b> — x64, ARM64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .zip archive | [`ShowMode-0.1.0-windows-x64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.1.0/ShowMode-0.1.0-windows-x64.zip) | 432 KB |
+| ARM64 · .zip archive | [`ShowMode-0.1.0-windows-arm64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.1.0/ShowMode-0.1.0-windows-arm64.zip) | 390 KB |
+
+</details>
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/showmode-windows/releases](https://github.com/stoatworks-labs/showmode-windows/releases).
+
+The Windows builds are unsigned, so SmartScreen warns once — see [SmartScreen and Smart App Control](#smartscreen-and-smart-app-control) for the one-time click-through.
+
+<!-- downloads:end -->
+
 ## What it does
 
 | Guard | How |
