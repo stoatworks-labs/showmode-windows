@@ -136,6 +136,23 @@ fn current() -> Option<(Config, Vec<Output>, Vec<Target>)> {
     Some((cfg, outs, targets))
 }
 
+/// A connected screen, for the cursor fence and its menu.
+pub struct ScreenInfo {
+    /// The device path, as the display lock keys monitors.
+    pub key: String,
+    pub name: String,
+    pub origin: (i32, i32),
+    pub size: (u32, u32),
+}
+
+pub fn screens() -> Vec<ScreenInfo> {
+    let Some((_, outs, targets)) = current() else { return Vec::new() };
+    outs.into_iter()
+        .zip(targets)
+        .map(|(o, t)| ScreenInfo { key: o.key, name: t.name, origin: o.origin, size: o.size })
+        .collect()
+}
+
 /// Applies a plan to the layout `cfg` describes, as a temporary layout. Returns SetDisplayConfig's
 /// result (0 for success), or None if a split had no free desktop to go to.
 fn apply(cfg: &Config, outs: &[Output], plan: &Plan) -> Option<i32> {

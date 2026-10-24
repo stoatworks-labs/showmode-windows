@@ -1,5 +1,5 @@
 //! The notification-area app: a hidden window that owns the tray icon, the menu, the global
-//! hotkey and the timers, and answers other copies of ShowMode.exe (a showmode: URL opens one,
+//! hotkeys and the timers, and answers other copies of ShowMode.exe (a showmode: URL opens one,
 //! which hands its command over with WM_COPYDATA and exits).
 
 use crate::controller::Controller;
@@ -15,7 +15,7 @@ use windows::Win32::System::DataExchange::COPYDATASTRUCT;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Shutdown::{ShutdownBlockReasonCreate, ShutdownBlockReasonDestroy};
 use windows::Win32::UI::HiDpi::{GetDpiForWindow, GetSystemMetricsForDpi};
-use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_F11};
+use windows::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, VK_F10, VK_F11};
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
@@ -30,6 +30,8 @@ const WM_RUN_COMMAND: u32 = WM_APP + 2;
 const NIN_KEYSELECT: u32 = 0x401;
 const TRAY_ID: u32 = 1;
 const HOTKEY_TOGGLE: i32 = 1;
+/// Pauses and resumes the cursor fence.
+const HOTKEY_FENCE: i32 = 2;
 const TIMER_WATCH: usize = 1;
 /// A second after the last WM_DISPLAYCHANGE: Windows sends several while a screen comes or goes.
 const TIMER_DISPLAY: usize = 2;
@@ -44,7 +46,9 @@ const ID_LOG: usize = 4;
 const ID_ABOUT: usize = 5;
 const ID_QUIT: usize = 6;
 const ID_UPDATE: usize = 7;
+const ID_FENCE_PAUSE: usize = 8;
 const ID_GUARD: usize = 100;
+const ID_SCREEN: usize = 150;
 const ID_APP: usize = 200;
 
 struct App {
@@ -53,8 +57,11 @@ struct App {
     icon: Option<HICON>,
     taskbar_created: u32,
     hotkey_ok: bool,
+    fence_hotkey_ok: bool,
     /// The names behind the Allowed to Play items, by position, from the last menu built.
     menu_apps: Vec<String>,
+    /// The screens behind the Keep Cursor Off items: device path, and whether it's main.
+    menu_screens: Vec<(String, bool)>,
     /// The last WM_DISPLAYCHANGE, so the five-second check never acts mid-change.
     display_changed: Option<Instant>,
 }
@@ -100,6 +107,11 @@ pub fn run(first_command: Option<Command>) {
         if !hotkey_ok {
             showlog::note("launch: Ctrl+Alt+Shift+F11 is taken by another app");
         }
+        let fence_hotkey_ok =
+            RegisterHotKey(hwnd, HOTKEY_FENCE, MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, VK_F10.0 as u32).is_ok();
+        if !fence_hotkey_ok {
+            showlog::note("launch: Ctrl+Alt+Shift+F10 is taken by another app");
+        }
         APP.with(|a| {
             *a.borrow_mut() =
                 Some(App {
@@ -108,7 +120,9 @@ pub fn run(first_command: Option<Command>) {
                     icon: None,
                     taskbar_created,
                     hotkey_ok,
+                    fence_hotkey_ok,
                     menu_apps: Vec::new(),
+                    menu_screens: Vec::new(),
                     display_changed: None,
                 })
         });
@@ -204,7 +218,11 @@ fn tray_data(hwnd: HWND) -> NOTIFYICONDATAW {
 
 /// Adds the icon (first time, or after Explorer restarts) or refreshes it for the state.
 fn update_tray(add: bool) {
-    let Some((hwnd, on, old)) = with_app(|a| (a.hwnd, a.show.engaged, a.icon.take())) else { return };
+    let Some((hwnd, on, paused, old)) =
+        with_app(|a| (a.hwnd, a.show.engaged, a.show.fence.as_ref().is_some_and(|f| f.paused()), a.icon.take()))
+    else {
+        return;
+    };
     unsafe {
         let dpi = GetDpiForWindow(hwnd).max(96);
         let px = GetSystemMetricsForDpi(SM_CXSMICON, dpi);
@@ -213,7 +231,11 @@ fn update_tray(add: bool) {
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
         nid.uCallbackMessage = WM_TRAY;
         nid.hIcon = icon.unwrap_or_default();
-        let tip = wide(if on { "Show Mode: on" } else { "Show Mode: off" });
+        let tip = wide(match (on, paused) {
+            (true, true) => "Show Mode: on, cursor fence paused",
+            (true, false) => "Show Mode: on",
+            _ => "Show Mode: off",
+        });
         nid.szTip[..tip.len()].copy_from_slice(&tip);
         if add {
             let _ = Shell_NotifyIconW(NIM_ADD, &nid);
@@ -264,9 +286,17 @@ unsafe fn submenu(menu: HMENU, sub: HMENU, text: &str) {
 
 /// Builds the menu, shows it at (x, y) and returns the chosen command (0 for none).
 fn show_menu(x: i32, y: i32) -> usize {
-    let Some((hwnd, engaged, warnings, unfinished, hotkey_ok)) =
-        with_app(|a| (a.hwnd, a.show.engaged, a.show.warnings.clone(), a.show.unfinished(), a.hotkey_ok))
-    else {
+    let Some((hwnd, engaged, warnings, unfinished, hotkey_ok, fence_hotkey_ok, fence)) = with_app(|a| {
+        (
+            a.hwnd,
+            a.show.engaged,
+            a.show.warnings.clone(),
+            a.show.unfinished(),
+            a.hotkey_ok,
+            a.fence_hotkey_ok,
+            a.show.fence.as_ref().map(|f| f.paused()),
+        )
+    }) else {
         return 0;
     };
     unsafe {
@@ -308,9 +338,38 @@ fn show_menu(x: i32, y: i32) -> usize {
 
         let guards = CreatePopupMenu().unwrap();
         for (i, g) in Guard::ALL.iter().enumerate() {
+            if g.starts_section() {
+                separator(guards);
+            }
             item(guards, ID_GUARD + i, g.title(), settings::is_on(*g), true);
         }
         submenu(menu, guards, "What Show Mode Disables");
+
+        // Keep Cursor Off: the screens connected now. The last unticked one can't be ticked.
+        let screens_menu = CreatePopupMenu().unwrap();
+        let screens = crate::display::screens();
+        let fenced: Vec<bool> = screens.iter().map(|s| settings::is_fenced_screen(&s.key)).collect();
+        let unticked = fenced.iter().filter(|f| !**f).count();
+        if screens.len() < 2 {
+            item(screens_menu, 0, "Only one screen: nothing to keep the cursor off", false, false);
+        }
+        for (i, s) in screens.iter().enumerate().filter(|_| screens.len() >= 2) {
+            let twin = screens.iter().filter(|o| o.name == s.name).count() > 1;
+            let label = format!(
+                "{}{}{}",
+                s.name,
+                if twin { format!(" ({}x{} at {},{})", s.size.0, s.size.1, s.origin.0, s.origin.1) } else { String::new() },
+                if s.origin == (0, 0) { "  (main: taskbar)" } else { "" }
+            );
+            item(screens_menu, ID_SCREEN + i, &label, fenced[i], fenced[i] || unticked > 1);
+        }
+        if let Some(paused) = fence {
+            separator(screens_menu);
+            let key = if fence_hotkey_ok { "\tCtrl+Alt+Shift+F10" } else { "" };
+            item(screens_menu, ID_FENCE_PAUSE, &format!("Pause Cursor Fence{key}"), paused, true);
+        }
+        submenu(menu, screens_menu, "Keep Cursor Off");
+        with_app(|a| a.menu_screens = screens.iter().map(|s| (s.key.clone(), s.origin == (0, 0))).collect());
 
         // Allowed to Play: apps with sound now, plus every app already ticked.
         let apps_menu = CreatePopupMenu().unwrap();
@@ -377,6 +436,26 @@ fn menu_command(id: usize) {
             let g = Guard::ALL[id - ID_GUARD];
             settings::set_on(g, !settings::is_on(g));
         }
+        ID_FENCE_PAUSE => toggle_fence_pause(),
+        id if (ID_SCREEN..ID_APP).contains(&id) => {
+            let Some((key, main)) = with_app(|a| a.menu_screens.get(id - ID_SCREEN).cloned()).flatten() else { return };
+            if main && !settings::is_fenced_screen(&key) {
+                let text = wide(
+                    "Keep the cursor off the main display?\n\nThe taskbar, the notification area and Show Mode's own icon are there, so you couldn't reach them with the mouse during the show.\n\nUsually the better fix is to make the operator's screen the main display in Settings > System > Display before the show.",
+                );
+                let answer = unsafe { MessageBoxW(None, PCWSTR(text.as_ptr()), w!("Show Mode"), MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) };
+                if answer != IDYES {
+                    return;
+                }
+            }
+            settings::toggle_fenced_screen(&key);
+            showlog::note(format!("fence: {key} {}", if settings::is_fenced_screen(&key) { "ticked" } else { "unticked" }));
+            with_app(|a| {
+                if let Some(f) = &a.show.fence {
+                    f.screens_changed();
+                }
+            });
+        }
         id if id >= ID_APP => {
             let name = with_app(|a| a.menu_apps.get(id - ID_APP).cloned()).flatten();
             if let Some(n) = name {
@@ -386,6 +465,23 @@ fn menu_command(id: usize) {
         }
         _ => {}
     }
+}
+
+fn toggle_fence_pause() {
+    let Some(paused) = with_app(|a| {
+        let f = a.show.fence.as_ref()?;
+        f.set_paused(!f.paused());
+        Some(f.paused())
+    })
+    .flatten() else {
+        return;
+    };
+    update_tray(false);
+    note::show(if paused {
+        "Cursor fence paused: Ctrl+Alt+Shift+F10 again to resume."
+    } else {
+        "Cursor fence back on."
+    });
 }
 
 /// Quitting ends the show first, so nothing is left changed.
@@ -416,6 +512,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         }
         WM_HOTKEY if wp.0 as i32 == HOTKEY_TOGGLE => {
             toggle();
+            LRESULT(0)
+        }
+        WM_HOTKEY if wp.0 as i32 == HOTKEY_FENCE => {
+            toggle_fence_pause();
             LRESULT(0)
         }
         WM_COPYDATA => {
@@ -511,8 +611,13 @@ pub fn status() -> String {
     lines.push(format!("power: {}", crate::power::describe()));
     lines.push(crate::spi::describe());
     lines.push(crate::dnd::describe());
+    lines.push(crate::sounds::describe());
+    lines.push(crate::explorer::describe());
+    lines.push(crate::keys::describe());
     lines.push(crate::wallpaper::describe());
     lines.push(crate::display::describe());
+    lines.push(crate::cursorfence::describe());
+    lines.push(crate::apps::describe());
     let apps = audio::current_apps();
     lines.push(format!(
         "audio sessions: {}",
@@ -524,7 +629,7 @@ pub fn status() -> String {
     ));
     lines.push(format!("allowed to play: {:?}", settings::allowed_audio_apps()));
     for g in Guard::ALL {
-        lines.push(format!("guard {:<14} {}", g.id(), if settings::is_on(g) { "on" } else { "off" }));
+        lines.push(format!("guard {:<17} {}", g.id(), if settings::is_on(g) { "on" } else { "off" }));
     }
     lines.push(preflight::describe());
     lines.join("\n")

@@ -8,7 +8,9 @@
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod chords;
 mod cloudstore;
+mod fence;
 mod journal;
 mod layout;
 mod paths;
@@ -18,19 +20,29 @@ mod showlog;
 #[cfg(windows)]
 mod app;
 #[cfg(windows)]
+mod apps;
+#[cfg(windows)]
 mod audio;
 #[cfg(windows)]
 mod controller;
 #[cfg(windows)]
 mod crashdialogs;
 #[cfg(windows)]
+mod cursorfence;
+#[cfg(windows)]
 mod display;
 #[cfg(windows)]
 mod dnd;
 #[cfg(windows)]
+mod explorer;
+#[cfg(windows)]
+mod hookthread;
+#[cfg(windows)]
 mod icons;
 #[cfg(windows)]
 mod integration;
+#[cfg(windows)]
+mod keys;
 #[cfg(windows)]
 mod note;
 #[cfg(windows)]
@@ -39,6 +51,8 @@ mod power;
 mod preflight;
 #[cfg(windows)]
 mod reg;
+#[cfg(windows)]
+mod sounds;
 #[cfg(windows)]
 mod spi;
 #[cfg(windows)]

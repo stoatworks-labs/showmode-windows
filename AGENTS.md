@@ -55,7 +55,7 @@ Windows behaves differently.
 - **Never take over someone else's showmode: handler.** A Parallels guest registers the Mac's URL
   schemes (`SharedHostApplication`); Show Mode only writes the scheme when it's absent or already
   points at a ShowMode.exe.
-- **No admin in v0.1.** Everything is per user. An admin step, when one comes, goes through a
+- **No admin.** Everything is per user. An admin step, when one comes, goes through a
   signed helper in Program Files taking named steps, never a script or a command string, and
   never a service or a highest-privileges scheduled task.
 - **No Ctrl+Alt+letter hotkeys.** AltGr arrives as Ctrl+Alt, so any such chord steals a
@@ -66,6 +66,26 @@ Windows behaves differently.
 - **The note is not a notification.** Show mode may just have switched notifications off, so
   warnings go in the menu and the note window by the notification area, which never takes the
   focus.
+- **The hooks live on threads of their own** (`hookthread.rs`): the Windows key guard and the
+  cursor fence. Windows holds every key and mouse movement until a low-level hook answers, so
+  nothing else runs on those threads, and a hook is only ever set again from the thread that set
+  it (in the spike, one re-set from another thread stayed dead). Neither writes anything, so a
+  crash leaves nothing to put back. **Never trap the cursor:** `fence.rs` stands down when no
+  unticked screen is left to go to; keep that property for any change to the fence.
+- **Never write High Contrast's settings.** `SPI_SETHIGHCONTRAST`, even with nothing changed,
+  re-applies the Windows theme: on winlab it put the theme's sounds back over the system sounds
+  guard (27 of 49 came back mid-show) and took up to six seconds. The accessibility guard leaves
+  High Contrast out for that reason.
+- **Apps are asked to quit, never killed.** WM_CLOSE to each of its top-level windows, as
+  `taskkill` without /f does (OneDrive gets its own `/shutdown`), five seconds for the lot, and one
+  that stays is named and left running: f.lux killed outright would leave its tint on the
+  screens. Each app's path is journalled before it's asked, and taken out again if it didn't go.
+  It's reopened with the arguments its own Run entry uses (f.lux `/noshow`, OneDrive `/background`).
+- **Ask whether Syncthing is running before calling it.** Windows takes about two seconds to give
+  up on a refused loopback connection, so a Syncthing that's set up but not running cost that per
+  folder at every start and End.
+- **Settings are read once, at launch.** Rewriting settings.json under a running copy does
+  nothing, and the copy's next save overwrites it: restart a test copy after changing it.
 - **One version:** `Cargo.toml`. The app reads it with `env!("CARGO_PKG_VERSION")` and
   `scripts/build.sh` names the executables from it.
 - **The icons are drawn** by `scripts/make-icons.swift`, never taken from SF Symbols or Segoe
@@ -92,6 +112,26 @@ Windows behaves differently.
   `%LOCALAPPDATA%`. The guest can't test the display lock with a second screen: the Mac has one,
   and with Code Integrity enforced the guest refuses the Virtual Display Driver's signature
   (0x800B0109, even with its root in the machine's Root store). Use winlab for that.
+- **PowerShell 5.1 bench traps:** `Measure` and `cls` are aliases (Measure-Object, Clear-Host) and
+  aliases beat functions, so a bench function with either name never runs. `$null` passed to a
+  string parameter of an Add-Type'd API arrives as "": use `[NullString]::Value`. A GUI-subsystem
+  exe started with `&` isn't waited for, so `--status` needs `Start-Process -Wait`. WASAPI loopback
+  delivers no data while nothing plays: keep a quiet tone under a recording that should find
+  silence, and measure the test sound at another frequency.
+- **The menu on the bench:** invoking a new icon from the overflow through UI Automation didn't
+  open the menu on winlab, and UI Automation sees the `#32768` window but none of its items. Post
+  the tray callback to the app's window instead (`WM_APP+1`, wParam the anchor point, lParam
+  `WM_CONTEXTMENU | 1 << 16`), steer with the arrow keys and read it by screenshot. The icon's
+  NotifyIconSettings entry has no ExecutablePath at first: find the test copy's by its
+  IconSnapshot (the masks) to delete it afterwards.
+- **System sounds on the guest without being loud:** point one event (SystemHand) at a 1 kHz
+  test tone at −40 dBFS, play it by alias and with MessageBeep while recording, and put the
+  user's own sound back afterwards with its value type.
+- **The Virtual Display Driver on winlab:** add the SignPath certificate from `mttvdd.cat` to the
+  machine's TrustedPublisher store first, so installing it asks nothing, and `certutil -delstore`
+  it afterwards with the driver package. Real Syncthing for a test: `syncthing generate` first and
+  edit its config to listen on 127.0.0.1 only with discovery and relays off, so no firewall prompt
+  lands on winlab's desktop, and stop every syncthing.exe at the end (it runs as two processes).
 - **Build from the Mac** with `scripts/build.sh` (cargo-xwin). The CRT is linked statically
   (`.cargo/config.toml`) so a show machine needs no Visual C++ redistributable.
 - **A release is a zip per architecture holding `ShowMode.exe`**, made by `scripts/release.sh`

@@ -7,6 +7,11 @@
 //! no display, sleep or hibernate timeouts. The user's own plan is never edited. The journal
 //! holds the original plan's GUID and the copy's, and restoring re-activates the original and
 //! deletes the copy. A standard user can do all of this (checked on 25H2 in the spike).
+//!
+//! Energy saver rides on the same copy: its charge level is set to 0 on battery and on mains, so
+//! it never switches itself on. "Always use energy saver" is that level at 100 (winlab, 25H2,
+//! keeps 30 on battery and 0 on mains), so a copy at 0 switches it off too. Either guard alone
+//! makes the copy, with only its own settings changed.
 
 use crate::{journal, showlog, util};
 use serde_json::json;
@@ -28,6 +33,9 @@ const HIBERNATEIDLE: GUID = GUID::from_u128(0x9d7815a6_7ee4_497e_8888_515a05f023
 /// Balanced, the plan every Windows has, for when the original has gone by restore time.
 const BALANCED: GUID = GUID::from_u128(0x381b4222_f694_41f0_9685_ff5bb260df2e);
 
+const SUB_ENERGYSAVER: GUID = GUID::from_u128(0xde830923_a562_41af_a086_e3a2c6bad2da);
+const ESBATTTHRESHOLD: GUID = GUID::from_u128(0xe69653ca_cf7f_4f05_aa73_cb833fa90ad4);
+
 /// Every value written on the copy is 0: do nothing, or never.
 const SHOW_PLAN: &[(&str, GUID, GUID)] = &[
     ("lid close action", SUB_BUTTONS, LIDACTION),
@@ -35,6 +43,8 @@ const SHOW_PLAN: &[(&str, GUID, GUID)] = &[
     ("sleep", SUB_SLEEP, STANDBYIDLE),
     ("hibernate", SUB_SLEEP, HIBERNATEIDLE),
 ];
+
+const ENERGY_SAVER: (&str, GUID, GUID) = ("Energy saver level", SUB_ENERGYSAVER, ESBATTTHRESHOLD);
 
 const PLAN_NAME: &str = "Show Mode (during a show)";
 
@@ -97,8 +107,9 @@ fn scheme_exists(g: &GUID) -> bool {
     ok(unsafe { PowerReadFriendlyName(HKEY::default(), Some(g), None, None, None, &mut size) })
 }
 
-/// Makes and activates the show plan. Returns a warning if it could not.
-pub fn engage_show_plan() -> Option<String> {
+/// Makes and activates the show plan, with the lid and timeouts changed if `lid_and_timeouts`
+/// and Energy saver's level if `energy_saver`. Returns a warning if it could not.
+pub fn engage_show_plan(lid_and_timeouts: bool, energy_saver: bool) -> Option<String> {
     if journal::contains("showPlan") {
         // A plan from a show that never finished restoring is still in place.
         return None;
@@ -129,7 +140,8 @@ pub fn engage_show_plan() -> Option<String> {
         let _ = PowerWriteFriendlyName(HKEY::default(), &copy, None, None, bytes);
     }
     let mut failed = Vec::new();
-    for (label, sub, setting) in SHOW_PLAN {
+    let settings = SHOW_PLAN.iter().filter(|_| lid_and_timeouts).chain(energy_saver.then_some(&ENERGY_SAVER));
+    for (label, sub, setting) in settings {
         let (ac, dc) = unsafe {
             (
                 PowerWriteACValueIndex(HKEY::default(), &copy, Some(sub), Some(setting), 0),

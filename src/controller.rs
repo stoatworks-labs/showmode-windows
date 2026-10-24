@@ -2,10 +2,15 @@
 //! changes it, so restore() — including a restore on the next launch after a crash — puts back
 //! exactly what was there, and only what show mode changed.
 
+use crate::cursorfence::CursorFence;
+use crate::keys::WindowsKey;
 use crate::settings::{self, Guard};
 use crate::watchdog::Watchdog;
-use crate::{audio, crashdialogs, display, dnd, journal, power, showlog, spi, util, wallpaper};
+use crate::{
+    apps, audio, crashdialogs, display, dnd, explorer, journal, keys, power, preflight, showlog, sounds, spi, util, wallpaper,
+};
 use serde_json::json;
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct Controller {
@@ -13,6 +18,8 @@ pub struct Controller {
     keep_awake: Option<power::KeepAwake>,
     watchdog: Option<Watchdog>,
     display: Option<display::Lock>,
+    windows_key: Option<WindowsKey>,
+    pub fence: Option<CursorFence>,
     /// From the last engage: guards that couldn't apply. From a restore: what isn't back yet.
     pub warnings: Vec<String>,
 }
@@ -23,10 +30,17 @@ const RESTORE_LABELS: &[(&str, &str)] = &[
     ("screenSaver", "the screen saver"),
     ("snap", "Snap"),
     ("dnd", "Do Not Disturb"),
+    ("systemSounds", "system sounds"),
     ("crashDialogs", "crash dialogs"),
+    ("autoPlay", "AutoPlay"),
+    ("showDesktopCorner", "the Show Desktop corner"),
+    ("windowShake", "window shake"),
+    ("accessibilityKeys", "accessibility shortcuts"),
     ("wallpaper", "the wallpaper"),
     ("displayLayout", "the main display"),
     ("audioMuted", "muted apps"),
+    ("quitApps", "apps to reopen"),
+    ("syncthingFolders", "Syncthing folders"),
 ];
 
 impl Controller {
@@ -52,8 +66,20 @@ impl Controller {
                 warn(Some("The PC may still sleep: Windows refused the keep-awake request".into()));
             }
         }
-        if settings::is_on(Guard::ShowPlan) {
-            warn(power::engage_show_plan());
+        let (plan, saver) = (settings::is_on(Guard::ShowPlan), settings::is_on(Guard::EnergySaver));
+        if plan || saver {
+            warn(power::engage_show_plan(plan, saver));
+            // Read back, allowing Windows a second to act on the new plan.
+            let still_on = || preflight::energy_saver() == Some(true);
+            if saver && still_on() {
+                let deadline = Instant::now() + Duration::from_secs(1);
+                while still_on() && Instant::now() < deadline {
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                if still_on() {
+                    warn(Some("Energy saver is still on: turn it off in Quick Settings".into()));
+                }
+            }
         }
         if settings::is_on(Guard::ScreenSaver) {
             warn(spi::engage_screen_saver());
@@ -64,8 +90,26 @@ impl Controller {
         if settings::is_on(Guard::Notifications) {
             warn(dnd::engage());
         }
+        if settings::is_on(Guard::SystemSounds) {
+            warn(sounds::engage());
+        }
         if settings::is_on(Guard::CrashDialogs) {
             warn(crashdialogs::engage());
+        }
+        if settings::is_on(Guard::AutoPlay) {
+            warn(explorer::engage_autoplay());
+        }
+        if settings::is_on(Guard::ShowDesktop) {
+            warn(explorer::engage_show_desktop());
+        }
+        if settings::is_on(Guard::AccessibilityKeys) {
+            warn(keys::engage_accessibility());
+        }
+        if settings::is_on(Guard::WindowsKey) {
+            match WindowsKey::start() {
+                Ok(k) => self.windows_key = Some(k),
+                Err(w) => warn(Some(w)),
+            }
         }
         if settings::is_on(Guard::Wallpaper) {
             warn(wallpaper::engage());
@@ -73,6 +117,12 @@ impl Controller {
         if settings::is_on(Guard::DisplayLayout) {
             match display::Lock::start() {
                 Ok(lock) => self.display = Some(lock),
+                Err(w) => warn(Some(w)),
+            }
+        }
+        if settings::is_on(Guard::CursorFence) {
+            match CursorFence::start() {
+                Ok(f) => self.fence = Some(f),
                 Err(w) => warn(Some(w)),
             }
         }
@@ -88,6 +138,16 @@ impl Controller {
                 audio::engage();
             }
         }
+        // Last: these wait up to five seconds each for apps to quit.
+        if settings::is_on(Guard::ColourApps) {
+            warn(apps::quit_colour_apps());
+        }
+        if settings::is_on(Guard::Syncthing) {
+            warn(apps::pause_syncthing());
+        }
+        if settings::is_on(Guard::SyncApps) {
+            warn(apps::quit_sync_apps());
+        }
 
         self.warnings = warnings;
         self.engaged = true;
@@ -98,6 +158,8 @@ impl Controller {
     pub fn restore(&mut self) {
         self.keep_awake = None;
         self.display = None;
+        self.windows_key = None;
+        self.fence = None;
         journal::load();
         if !journal::exists() {
             self.watchdog = None;
@@ -113,9 +175,16 @@ impl Controller {
         spi::restore_screen_saver();
         spi::restore_snap();
         dnd::restore();
+        sounds::restore();
         crashdialogs::restore();
+        explorer::restore_autoplay();
+        explorer::restore_show_desktop();
+        keys::restore_accessibility();
         display::restore();
         wallpaper::restore();
+        apps::resume_syncthing();
+        // Last, so f.lux comes back to the screens as they were.
+        apps::reopen();
 
         // Each restore removes its own entry once it's done; what's left needs another try.
         let left: Vec<String> = journal::keys().into_iter().filter(|k| k != "engaged").collect();
@@ -167,13 +236,18 @@ impl Controller {
         }
     }
 
-    /// After a display change (and every five seconds): puts the display layout right. Returns
-    /// the problem if the display lock has just stood down, which stays listed in the menu.
+    /// After a display change (and every five seconds): puts the display layout right, then
+    /// works the cursor fence out again for the layout it left. Returns the problem if the
+    /// display lock has just stood down, which stays listed in the menu.
     pub fn enforce_display(&mut self, why: &str) -> Option<String> {
         if !self.engaged {
             return None;
         }
-        let problem = self.display.as_mut()?.enforce(why)?;
+        let problem = self.display.as_mut().and_then(|d| d.enforce(why));
+        if let Some(f) = &self.fence {
+            f.screens_changed();
+        }
+        let problem = problem?;
         self.warnings.push(problem.clone());
         Some(problem)
     }

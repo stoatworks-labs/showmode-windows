@@ -18,7 +18,10 @@ and a separate app: Windows needed different answers to nearly every question.
 > mid-show and the next launch putting everything back, muting other apps measured by recording
 > the output, and the display lock with two virtual screens. It hasn't done a show, and the
 > wallpaper blackout hasn't been run yet, so try it on your own show PC before a show depends on
-> it. The [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
+> it. The guards added since (system sounds, the Windows key, the cursor fence, the taskbar
+> corner, AutoPlay, accessibility shortcuts, Energy saver, f.lux, Syncthing and sync apps) are on
+> main and come with the next release, bench-tested the same way. The
+> [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
 
 <!-- downloads:start -->
 
@@ -48,13 +51,23 @@ The Windows builds are unsigned, so SmartScreen warns once — see [SmartScreen 
 |---|---|
 | Display & system sleep | a power request (`PowerSetRequest`, display and system), which dies with the process |
 | Show power plan | a temporary copy of your active plan with the lid set to do nothing and no display, sleep or hibernate timeouts; your own plan is never edited, and the copy is deleted afterwards |
+| Energy saver | its charge level set to 0 on that same copy, on battery and on mains, which turns Always use energy saver off too |
 | Screen saver | `SPI_SETSCREENSAVEACTIVE`, only if it's on |
 | Do Not Disturb | the shell's own QuietHoursSettings COM server, the one Settings uses (undocumented, looked up at runtime, so a Windows without it just reports "unavailable") |
-| Snap | `SPI_SETWINARRANGING`: windows stop snapping to edges, Snap layouts and drag-to-top maximising |
+| System sounds | the No Sounds scheme, written the way the Sound control panel writes it; each event's own sound is journalled and put back |
 | App crash dialogs | Windows Error Reporting `DontShowUI` (per user); reports are still saved |
+| AutoPlay | `DisableAutoplay`, the Settings switch, so plugging in a drive or phone asks nothing |
+| Snap | `SPI_SETWINARRANGING`: windows stop snapping to edges, Snap layouts and drag-to-top maximising |
+| Show Desktop corner, window shake | `TaskbarSd` and `DisallowShaking`, the Settings switches, then the broadcast Settings sends |
+| Windows key | a low-level keyboard hook on a thread of its own swallows the Windows keys and anything pressed with them, Ctrl+Esc and Print Screen; it writes nothing and goes with the process |
+| Accessibility shortcuts | the shortcut flags for Sticky Keys, Filter Keys, Toggle Keys and Mouse Keys (`SystemParametersInfo`), never the features themselves |
+| Cursor fence | a low-level mouse hook stops the cursor at the edge of the screens ticked under **Keep Cursor Off**, backed by a 10 ms check; it stands down rather than leave the cursor nowhere to go, and Ctrl+Alt+Shift+F10 pauses it |
 | Desktop wallpaper | black on every screen through `IDesktopWallpaper`, including screens plugged in mid-show; pictures, position, colour and slideshow are journalled and put back. With Windows Spotlight as the background it's left alone, since Spotlight can't be put back exactly |
 | Display lock | the display that was main at the start stays main, and a screen that starts mirroring mid-show is split back out to extended, through the CCD API (`SetDisplayConfig`). Every correction is temporary, never saved to Windows' display database; a layout something keeps reverting is let go after four corrections inside twenty seconds |
+| f.lux and LightBulb | asked to quit (WM_CLOSE, never killed) and opened again afterwards |
 | Other apps' sound *(off by default)* | every app not ticked under **Allowed to Play** is muted, session by session, on every output, including sound that's already playing. Windows remembers a per-app mute even after the app that set it has died, so a watchdog process unmutes everything the moment Show Mode does |
+| Syncthing | its local REST API pauses the folders that are syncing and resumes only those |
+| Sync apps *(off by default)* | OneDrive (its own `/shutdown`), Dropbox, Google Drive, Box Drive, MEGA and Resilio Sync asked to quit and opened again afterwards |
 
 Before changing anything it writes down what was there, in `%LOCALAPPDATA%\ShowMode\journal.json`.
 Ending the show puts back those values and nothing else. Quitting does the same, and if the app
@@ -64,11 +77,11 @@ Nothing in v0.1 needs admin.
 **Pre-show checks** list what Show Mode can't switch off, only point out: above all a waiting
 Windows restart (Windows Update restarts on its own deadline, and no app can refuse it), then
 battery, Energy saver, Night light, the taskbar on every display, Windows minimising windows when
-a monitor drops out, a Public network (which hides NDI and Dante) and a Remote Desktop session.
-They only read.
+a monitor drops out, a Public network (which hides NDI and Dante), a Remote Desktop session, and
+remote-access, backup and sync tools that are running. They only read.
 
-Not in v0.1, and on the list: keeping Windows-key shortcuts and the cursor off the audience's
-screens, accessibility hotkeys, and the background-work guards.
+Not on Windows yet: pausing Windows Update and Search indexing, which need admin (Show Mode
+doesn't ask for it), and the Mac's fan guards.
 
 ## Installing
 

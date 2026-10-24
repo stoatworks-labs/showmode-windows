@@ -2,13 +2,15 @@
 
 Show Mode is a notification-area app that locks a Windows PC down for a show, then puts every
 setting back how you had it. One click (or **Ctrl+Alt+Shift+F11**) stops the PC sleeping, stops
-notifications landing on an output, blacks out the wallpaper so your desktop never appears on the
-projector, keeps the projector from becoming the main display or a mirror, and can mute every app
-that isn't the show. Before doors, its pre-show checks point out what it can't switch off, a
+notifications and system sounds landing on an output, blacks out the wallpaper so your desktop
+never appears on the projector, keeps the projector from becoming the main display or a mirror,
+keeps a stray Windows key and the mouse off the audience's screens, and can mute every app that
+isn't the show. Before doors, its pre-show checks point out what it can't switch off, a
 waiting Windows restart above all.
 
-> **Status (2026-10-22): a preview, released at v0.1.0 and unsigned. Bench-tested on two
-> Windows 11 25H2 machines, not on a show.**
+> **Status (2026-10-24): a preview, released at v0.1.0 and unsigned. The guards added since, from
+> system sounds to Syncthing, are on main and not in a release yet. Everything has been
+> bench-tested on two Windows 11 25H2 machines, none of it on a show.**
 >
 > **Checked on winlab** (Windows 11 Pro 25H2, build 26200, x64 VM, one display, run with the
 > token a standard user gets): the app starting in the signed-in session, the tray icon in both
@@ -96,12 +98,62 @@ waiting Windows restart above all.
 > Windows' emulation. They were built from the same code as the bench runs above, but that's the
 > only run the release files themselves have had.
 >
+> **Added after v0.1.0, checked 2026-10-24** on winlab (x64, standard-user token) and the
+> Parallels guest (ARM64).
+>
+> **System sounds, recorded on the guest:** with the error sound pointed at a 1 kHz test tone at
+> −40 dBFS, it recorded at −40 dB before the show, nothing at all (−120 dB) during it, whether
+> asked for by name or with MessageBeep, and −40 dB again after. An app's own tone carried on at
+> the same level throughout. On winlab all 49 event sounds went silent, stayed silent through the
+> show and came back as they were stored.
+>
+> **The keys, on winlab:** Win, Win+Tab, Win+D, Ctrl+Esc, Print Screen and the Copilot key
+> (Win+Shift+F23), sent as input mid-show, opened nothing. With no show running the same keys
+> opened Search, Task View and the Snipping Tool. Win was blocked on the guest's ARM64 build too,
+> and opened Search again after End and after a kill. The accessibility shortcuts were switched
+> off and back on, but I didn't see five Shifts stay quiet: five Shifts sent as input don't bring
+> up the box even with the shortcut on, so that needs a real keyboard.
+>
+> **The taskbar, Energy saver and AutoPlay, on winlab:** the Show Desktop corner left the taskbar
+> for the show and came back after it (read through UI Automation). With Always use energy saver
+> on, Windows reported Energy saver on before the show, off during it, and on again after End and
+> after a kill and the next launch. Window shake and AutoPlay were switched off and back on, but I
+> had nothing to shake or plug in to see either working.
+>
+> **The cursor fence, on winlab,** with two 800×600 virtual screens to the right of its 1280×800
+> one and the middle one ticked: a cursor gliding at it 10 pixels at a time stopped at its edge
+> (x=1279), and a jump onto it landed on that edge. A jump to a point nearer the right-hand screen
+> went there instead. A cursor put on it directly, which no hook sees, was pulled back within
+> 50 ms, and Ctrl+Alt+Shift+F10 paused the fence and set it going again. Ticking the second
+> virtual screen under Keep Cursor Off mid-show fenced it straight away and greyed out the last
+> unticked screen. With every screen ticked the fence stood down and the cursor went anywhere, as
+> it did after End. The menu was opened by its own message and checked by screenshot, since
+> UI Automation couldn't open it from the overflow.
+>
+> **Other apps, on winlab:** f.lux, installed for the test, quit a second after being asked and
+> came back with /noshow at the end. OneDrive quit through its own /shutdown and came back. A
+> stand-in that ignores being asked was left running and named in the note; nothing was killed.
+> After a kill mid-show, the next launch reopened them. Syncthing 2.1.7 had its two syncing
+> folders paused and only those resumed, leaving one I'd paused by hand alone, over HTTPS too.
+> After a kill the next launch resumed them, and with Syncthing gone at the end of the show they
+> stayed in the journal until a launch found it running again. A stand-in AnyDesk showed up in the
+> pre-show checks.
+>
+> **Fixed during that bench:** the accessibility guard also switched off High Contrast's shortcut,
+> and writing High Contrast's settings, even unchanged, re-applies the Windows theme: 27 of the 49
+> system sounds came back mid-show, and the start took up to six seconds longer. High Contrast is
+> left alone now. And with Syncthing set up but not running, each call to it cost two seconds while
+> Windows gave up on the connection; Show Mode checks it's running first now.
+>
 > **Not checked yet:** SmartScreen and Smart App Control meeting a downloaded copy; turning off a
 > screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
 > Login; Finish Restoring; a restart or sign-out mid-show; the display lock with a real projector,
 > a laptop's built-in screen, or a laptop with two GPUs; the display lock on ARM64 with a second
-> screen; Windows 11 24H2; and a real show.
+> screen; the keys and the cursor fence with a real keyboard and mouse, a touchscreen, or an app
+> running as administrator in front; ticking the main display under Keep Cursor Off (it asks
+> first); f.lux's tint going with it (winlab's display adapter has none); Dropbox, Google Drive,
+> Box, MEGA, Resilio Sync and LightBulb; Windows 11 24H2; and a real show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
 
@@ -151,13 +203,23 @@ Untick any guard in **What Show Mode Disables**. A change there takes effect at 
 |---|---|
 | Prevent display & system sleep | Holds a power request, the way a video player does. It goes with the app, so a crash can't leave a PC that never sleeps. Windows still ends it on a lid close, the power button, Start > Sleep and the lock screen, which is what the next guard is for. |
 | Show power plan | Switches to a copy of your active power plan with the lid set to do nothing and no display, sleep or hibernate timeouts, so a laptop driving a projector keeps going with its lid shut. Your own plan is never edited; at the end it's switched back and the copy deleted. If you pick another plan mid-show, your choice stands. |
+| Turn off Energy saver | Turns Energy saver off in that same copy of your plan, on battery and on mains, so it can't switch itself on as the battery runs down and slow everything with it. Always use energy saver goes off too. Your own plan isn't touched. If it's still on once the show plan is in, Show Mode says so. |
 | Turn off the screen saver | Only if it's on. |
 | Do Not Disturb | Turns on Do Not Disturb, so no notification banner lands on an output. Whatever it lets through (alarms, reminders and the apps you've set as priority in Settings > System > Notifications) still gets through, so check that list on the show machine. Ending a show while the screens are duplicated also ends the Do Not Disturb that Windows' own "when duplicating your display" rule turned on, as switching it off by hand would. |
-| Turn off Snap | Windows stop snapping to the screen edges, the Snap layouts box stops appearing over the maximise button, and dragging a window to the top no longer maximises it. |
+| Turn off system sounds | Switches the sound scheme to No Sounds, as the Sound control panel does, so the error ding, a device plugging in or out and the Recycle Bin can't go out through the show's audio. Sound from apps, the show included, plays as normal, and nothing is turned down. Each event's own sound comes back at the end, and one you change mid-show stays as you set it. |
 | Hide app crash dialogs | When an app crashes, Windows can put a "stopped working" window over everything. This keeps it away; the crash report is still saved. |
+| Turn off AutoPlay | Stops the box asking what to do with a USB stick, a card reader or a phone the moment it's plugged in. |
+| Turn off Snap | Windows stop snapping to the screen edges, the Snap layouts box stops appearing over the maximise button, and dragging a window to the top no longer maximises it. |
+| Turn off the Show Desktop corner & window shake | The far right of the taskbar sweeps every window aside when clicked, the show included. This takes it away, along with title bar shake, which minimises everything else. |
+| Block the Windows key, its shortcuts & Print Screen | See [Keys](#keys). |
+| Turn off accessibility shortcuts | Shift pressed five times, right Shift held down, Num Lock held down, and left Alt + left Shift + Num Lock each put a box over the show asking whether to turn on Sticky Keys or one of its friends. This switches off the shortcuts, never the features, and puts them back afterwards. High Contrast's shortcut is left alone (see the status above). |
+| Fence cursor off show screens | See [Keeping the cursor off the show screens](#keeping-the-cursor-off-the-show-screens). |
 | Black out desktop wallpaper | Paints the desktop black on every screen, including one plugged in mid-show, so an extended desktop never shows your wallpaper on the projector. Your pictures, their position and a running slideshow come back at the end. With Windows Spotlight as the background it's left alone, because Spotlight can't be put back exactly. |
 | Lock main display & keep new screens extended | Keeps the display that was main at the start as the main one, and splits a screen that starts mirroring mid-show back out to extended. See below. |
+| Quit f.lux & LightBulb, and reopen them after | Both tint every screen with the time of day, the projector included. See [Other apps in the background](#other-apps-in-the-background). |
 | Mute apps not allowed to play | **Off by default.** See below. |
+| Pause Syncthing | See [Other apps in the background](#other-apps-in-the-background). |
+| Quit sync apps | **Off by default.** OneDrive, Dropbox, Google Drive, Box Drive, MEGA and Resilio Sync. See [Other apps in the background](#other-apps-in-the-background). |
 
 ## Keeping the screens where they are
 
@@ -188,6 +250,72 @@ for the rest of the show.
 
 When the show ends, the display that was main before it becomes main again. Screens split out of
 a mirror stay extended: the mirror was Windows' guess, not yours.
+
+## Keys
+
+**Block the Windows key, its shortcuts & Print Screen** (on by default) makes the Windows key do
+nothing while the show runs, on its own or with anything else. So a slipped hand can't open Start,
+Task View, Show Desktop (Win+D), another virtual desktop, the Project panel (Win+P), Game Bar or
+the Magnifier over the show, and the Copilot key goes too, since underneath it's Win+Shift+F23. A
+key pressed with the Windows key goes with it, so nothing reaches the show app as a stray letter.
+Ctrl+Esc (Start again) and Print Screen (Windows 11's Snipping Tool, which dims every screen, the
+projector included) are blocked as well.
+
+What still gets through: Win+L and Ctrl+Alt+Del, which Windows deals with before any app sees
+them, and the keys while an app running as administrator has the focus, since Windows doesn't
+let an ordinary app see those. Alt+Tab, Ctrl+Shift+Esc and everything else are left alone.
+Nothing is written anywhere for this one: if Show Mode stops, the keys work again.
+
+## Keeping the cursor off the show screens
+
+Under **Keep Cursor Off**, tick each screen the audience sees. Screens are remembered by
+Windows' name for the monitor and the socket it's in, so plug the projector into the same port
+each time. Two screens with the same name show their size and position, so you can tell them
+apart, and the main display is marked, since the taskbar, the notification area and Show Mode's
+own icon live there. A change here takes effect straight away, mid-show included.
+
+The cursor always keeps at least one screen: the last unticked screen can't be ticked. Ticking
+the main display asks first, because during the show you couldn't reach the taskbar with the
+mouse. Usually the better fix is to make the operator's screen the main display in Settings >
+System > Display before the show.
+
+Every mouse movement that would land on a ticked screen is caught on its way, and the cursor stops
+at the nearest edge it's allowed. Unlike the Mac, Windows wants no permission for this. Anything
+that puts the cursor somewhere without moving it (another program, say) is caught by a check
+every 10 ms. A screen mirroring one you haven't ticked isn't fenced: it shows the same desktop.
+
+**Ctrl+Alt+Shift+F10** pauses the fence (press it again to resume) when you need a show screen on
+purpose, to drag a window onto it, say. **Pause Cursor Fence** under Keep Cursor Off does the same,
+and the tip on the masks says when it's paused.
+
+The fence stands down rather than trap you: if every screen is ticked, or the only unticked one
+gets unplugged, it does nothing until that changes. The lock screen, Ctrl+Alt+Del and a UAC
+prompt free the cursor whatever any app does, and the fence takes hold again when they've gone.
+I haven't tried it with an app running as administrator in front, which an ordinary app's hooks
+don't hear from.
+
+## Other apps in the background
+
+**Quit f.lux & LightBulb** (on by default) asks them to quit for the show and opens them again
+afterwards, so the projector's colour doesn't drift with the time of day.
+
+**Pause Syncthing** (on by default) pauses every Syncthing folder that's syncing, through
+Syncthing's own controls on this PC, and resumes only those afterwards: a folder you'd already
+paused stays paused. If Syncthing isn't running when the show ends, its folders stay paused until
+it is, and the next launch of Show Mode resumes them.
+
+**Quit sync apps** (off by default) asks OneDrive, Dropbox, Google Drive, Box Drive, MEGA and
+Resilio Sync to quit for the show, and opens them again afterwards. None of them can be paused
+from outside. **Leave it off if your show media lives in one of their folders**, which on Windows
+is likelier than you'd think: OneDrive often holds the Desktop and Documents folders, and a file
+kept online only can't be opened while OneDrive isn't running. With it off, the pre-show checks
+name any that are running, so you can pause them from their own icons instead.
+
+Each app is asked to quit the way closing it would ask (OneDrive through its own /shutdown), and
+given five seconds. One that won't go is left running and named in the note. Nothing is ever
+killed: f.lux killed outright would leave its tint on the screens. They're opened again the way
+their own startup entries open them, in the background, and after a crash mid-show that happens
+at the next launch.
 
 ## Keeping other apps off the PA
 
@@ -235,6 +363,14 @@ checks changes anything.
   nothing. Make the show network Private in Settings > Network & internet.
 - **A Remote Desktop session.** While someone's connected by Remote Desktop, the PC's own
   screens show the lock screen.
+- **A remote-access tool running:** TeamViewer, AnyDesk, RustDesk, Parsec, Chrome Remote
+  Desktop, Splashtop, TightVNC, UltraVNC or RealVNC. Show Mode doesn't block remote access, since
+  whoever runs the show may need it, but a session can change the resolution or put the wallpaper
+  back when someone connects. Set it not to, and rehearse with it.
+- **A backup tool running:** Backblaze, CrashPlan, Carbonite or Duplicati can start a backup
+  mid-show. Pause it for the show.
+- **A sync app running** (OneDrive, Dropbox, Google Drive, Box Drive, MEGA, Resilio Sync) while
+  **Quit sync apps** is off. Pause it from its own icon.
 
 The ones that can change during the show (a waiting restart, battery, Energy saver, Night light
 coming on, the network, a remote session) also stay at the top of the menu, marked ⚠, while it
@@ -276,6 +412,8 @@ Show Mode keeps a plain log of what it changes in `%LOCALAPPDATA%\ShowMode\ShowM
 **Open Log** in the menu opens it.
 
 `ShowMode.exe --status` prints what it can see (the active power plan, the screen saver, Snap,
-Do Not Disturb, the wallpaper, the displays and the layout Windows remembers for them, apps with
-sound, the journal, and what each pre-show check read) without changing anything.
+Do Not Disturb, the system sounds, the taskbar and AutoPlay settings, the accessibility
+shortcuts, the wallpaper, the displays and the layout Windows remembers for them, the screens
+ticked for the cursor fence, apps with sound, the apps it would quit, Syncthing, the journal, and
+what each pre-show check read) without changing anything.
 `--status --out <file>` writes it to a file instead.

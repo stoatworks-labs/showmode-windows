@@ -7,7 +7,8 @@
 //! deadline whatever any app says (WM_QUERYENDSESSION can't refuse a forced restart), so the
 //! only defence is to restart before doors. It leads the note and the menu whenever it's there.
 
-use crate::{cloudstore, reg};
+use crate::settings::{self, Guard};
+use crate::{apps, cloudstore, reg, util};
 use std::time::Instant;
 use windows::core::PWSTR;
 use windows::System::Power::{EnergySaverStatus, PowerManager};
@@ -89,7 +90,7 @@ fn battery() -> Option<String> {
 
 /// Energy saver (battery saver before 24H2): Windows' documented status, or the power status
 /// flag that mirrors it.
-fn energy_saver() -> Option<bool> {
+pub fn energy_saver() -> Option<bool> {
     let winrt = PowerManager::EnergySaverStatus().ok().map(|s| s == EnergySaverStatus::On);
     let flag = power_status().map(|s| s.SystemStatusFlag == 1);
     match (winrt, flag) {
@@ -217,6 +218,35 @@ pub fn items() -> Vec<Check> {
     }
     if minimises_on_disconnect() {
         out.push(check("A projector dropping out minimises its windows: untick that in Settings > System > Display > Multiple displays", false));
+    }
+    // Other apps, by name. A sync app Show Mode will quit needs no line.
+    let remote = apps::remote_tools();
+    if !remote.is_empty() {
+        out.push(check(
+            format!(
+                "{} {} running: a session can change the resolution or the wallpaper when someone connects, so set it not to and rehearse with it",
+                util::list(&remote),
+                if remote.len() == 1 { "is" } else { "are" }
+            ),
+            false,
+        ));
+    }
+    let backup = apps::backup_tools();
+    if !backup.is_empty() {
+        out.push(check(format!("{} can start a backup mid-show: pause it for the show", util::list(&backup)), false));
+    }
+    if !settings::is_on(Guard::SyncApps) {
+        let sync = apps::sync_apps();
+        if !sync.is_empty() {
+            out.push(check(
+                format!(
+                    "{} can sync mid-show over the show network: pause syncing from {} icon, or tick Quit sync apps",
+                    util::list(&sync),
+                    if sync.len() == 1 { "its" } else { "each" }
+                ),
+                false,
+            ));
+        }
     }
     out
 }
