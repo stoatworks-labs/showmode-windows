@@ -13,15 +13,14 @@ and a separate app: Windows needed different answers to nearly every question.
 
 **Ctrl+Alt+Shift+F11** starts/ends show mode · or click the masks in the notification area
 
-> **Preview.** v0.1.0 is out for testing, and unsigned. It has been bench-tested on two Windows 11
+> **Preview.** v0.2.0 is out for testing, and unsigned. It has been bench-tested on two Windows 11
 > 25H2 machines (an x64 VM and an ARM64 Parallels guest): starting and ending a show, a crash
 > mid-show and the next launch putting everything back, muting other apps measured by recording
 > the output, and the display lock with two virtual screens. It hasn't done a show, and the
 > wallpaper blackout hasn't been run yet, so try it on your own show PC before a show depends on
-> it. The guards added since (system sounds, the Windows key, the cursor fence, the taskbar
-> corner, AutoPlay, accessibility shortcuts, Energy saver, f.lux, Syncthing and sync apps) are on
-> main and come with the next release, bench-tested the same way. The
-> [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
+> it. v0.2.0 adds system sounds, the Windows key, the cursor fence, the taskbar corner, AutoPlay,
+> accessibility shortcuts, Energy saver, f.lux, Syncthing and sync apps, bench-tested the same
+> way. The [user guide](docs/USER-GUIDE.md) says exactly what has and hasn't been checked.
 
 <!-- downloads:start -->
 

@@ -8,9 +8,8 @@ keeps a stray Windows key and the mouse off the audience's screens, and can mute
 isn't the show. Before doors, its pre-show checks point out what it can't switch off, a
 waiting Windows restart above all.
 
-> **Status (2026-10-24): a preview, released at v0.1.0 and unsigned. The guards added since, from
-> system sounds to Syncthing, are on main and not in a release yet. Everything has been
-> bench-tested on two Windows 11 25H2 machines, none of it on a show.**
+> **Status (2026-10-24): a preview, released at v0.2.0 and unsigned. Bench-tested on two Windows 11
+> 25H2 machines, not on a show.**
 >
 > **Checked on winlab** (Windows 11 Pro 25H2, build 26200, x64 VM, one display, run with the
 > token a standard user gets): the app starting in the signed-in session, the tray icon in both
@@ -98,7 +97,7 @@ waiting Windows restart above all.
 > Windows' emulation. They were built from the same code as the bench runs above, but that's the
 > only run the release files themselves have had.
 >
-> **Added after v0.1.0, checked 2026-10-24** on winlab (x64, standard-user token) and the
+> **Added in v0.2.0, checked 2026-10-24** on winlab (x64, standard-user token) and the
 > Parallels guest (ARM64).
 >
 > **System sounds, recorded on the guest:** with the error sound pointed at a 1 kHz test tone at
@@ -138,6 +137,11 @@ waiting Windows restart above all.
 > After a kill the next launch resumed them, and with Syncthing gone at the end of the show they
 > stayed in the journal until a launch found it running again. A stand-in AnyDesk showed up in the
 > pre-show checks.
+>
+> **The v0.2.0 downloads**, checked the same way on the guest: the `ShowMode.exe` from each zip
+> read all 19 guards and every pre-show check with `--status`, the ARM64 one natively and the x64
+> one under emulation. They're built from the code benched above, and that's the only run the
+> release files themselves have had.
 >
 > **Fixed during that bench:** the accessibility guard also switched off High Contrast's shortcut,
 > and writing High Contrast's settings, even unchanged, re-applies the Windows theme: 27 of the 49

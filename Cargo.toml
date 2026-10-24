@@ -2,7 +2,7 @@
 name = "showmode"
 # The one version: the app reads it with env!("CARGO_PKG_VERSION") and the build script names
 # the release from it.
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Stops your show PC embarrassing you, and puts everything back afterwards"
 license = "MIT"
