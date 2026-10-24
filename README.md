@@ -26,15 +26,15 @@ and a separate app: Windows needed different answers to nearly every question.
 
 ## Download
 
-**[v0.1.0](https://github.com/stoatworks-labs/showmode-windows/releases/tag/v0.1.0)** — prebuilt for Windows. Pick your platform:
+**[v0.2.0](https://github.com/stoatworks-labs/showmode-windows/releases/tag/v0.2.0)** — prebuilt for Windows. Pick your platform:
 
 <details>
 <summary><b>Windows</b> — x64, ARM64</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .zip archive | [`ShowMode-0.1.0-windows-x64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.1.0/ShowMode-0.1.0-windows-x64.zip) | 432 KB |
-| ARM64 · .zip archive | [`ShowMode-0.1.0-windows-arm64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.1.0/ShowMode-0.1.0-windows-arm64.zip) | 390 KB |
+| x64 · .zip archive | [`ShowMode-0.2.0-windows-x64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.2.0/ShowMode-0.2.0-windows-x64.zip) | 499 KB |
+| ARM64 · .zip archive | [`ShowMode-0.2.0-windows-arm64.zip`](https://github.com/stoatworks-labs/showmode-windows/releases/download/v0.2.0/ShowMode-0.2.0-windows-arm64.zip) | 450 KB |
 
 </details>
 
