@@ -8,7 +8,7 @@
 //! only defence is to restart before doors. It leads the note and the menu whenever it's there.
 
 use crate::settings::{self, Guard};
-use crate::{apps, cloudstore, reg, util};
+use crate::{apps, cloudstore, display, reg, util};
 use std::time::Instant;
 use windows::core::PWSTR;
 use windows::System::Power::{EnergySaverStatus, PowerManager};
@@ -138,6 +138,42 @@ fn minimises_on_disconnect() -> bool {
     reg::get_dword(r"Control Panel\Desktop", "MonitorRemovalRecalcBehavior") != Some(1)
 }
 
+// MARK: the screens
+
+/// PowerPoint's automation class, there for any Office install (both registry views share it).
+const POWERPOINT: &str = r"SOFTWARE\Classes\PowerPoint.Application";
+
+/// One mirror's screens in words: "the built-in screen and DELL U2720Q", or "two DELL U2720Q
+/// screens" when they share a name.
+fn mirror_words(names: &[String]) -> String {
+    match names {
+        [first, rest @ ..] if !rest.is_empty() && rest.iter().all(|n| n == first) => {
+            let count = match names.len() {
+                2 => "two".to_string(),
+                3 => "three".to_string(),
+                n => n.to_string(),
+            };
+            format!("{count} {first} screens")
+        }
+        _ => util::list(names),
+    }
+}
+
+/// PowerPoint for Windows opens no Presenter View while any screen is duplicated, and keeps its
+/// slides off a duplicated screen when it has another, so a laptop on its own with the projector
+/// duplicated to a confidence monitor gets the slides on the laptop (benched on winlab,
+/// 2026-11-03). Only said where PowerPoint is installed.
+fn duplicated() -> Option<String> {
+    let mirrors = display::duplicated();
+    if mirrors.is_empty() || !reg::machine_key_exists(POWERPOINT) {
+        return None;
+    }
+    let what = mirrors.iter().map(|m| mirror_words(m)).collect::<Vec<_>>().join(", and ");
+    Some(format!(
+        "{what} are duplicated, so PowerPoint won't open Presenter View, and puts its slides on another screen if there is one: for Presenter View, extend every screen in Settings > System > Display"
+    ))
+}
+
 // MARK: the network and the session
 
 /// Connected networks whose profile is Public.
@@ -212,6 +248,9 @@ pub fn items() -> Vec<Check> {
         } else if settings.as_deref().and_then(cloudstore::night_light_scheduled) == Some(true) {
             out.push(check("Night light is scheduled and can tint the projector mid-show: turn the schedule off in Settings", false));
         }
+    }
+    if let Some(d) = duplicated() {
+        out.push(check(d, false));
     }
     if taskbar_everywhere() {
         out.push(check("The taskbar shows on every display, the projector too: change it in Settings > Personalisation > Taskbar", false));
@@ -292,6 +331,12 @@ pub fn describe() -> String {
         reg::get_dword(ADVANCED, "MMTaskbarEnabled"),
         yn(minimises_on_disconnect()),
         reg::get_dword(r"Control Panel\Desktop", "MonitorRemovalRecalcBehavior")
+    ));
+    let mirrors = display::duplicated();
+    lines.push(format!(
+        "duplicated screens: {}; PowerPoint installed: {}",
+        if mirrors.is_empty() { "none".into() } else { mirrors.iter().map(|m| mirror_words(m)).collect::<Vec<_>>().join("; ") },
+        yn(reg::machine_key_exists(POWERPOINT))
     ));
     lines.push(format!(
         "public networks: {}",

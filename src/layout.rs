@@ -51,9 +51,14 @@ fn groups(outputs: &[Output]) -> Vec<Vec<usize>> {
     out.into_iter().map(|(_, g)| g).collect()
 }
 
+/// Each mirror as the outputs (by index) showing its desktop.
+pub fn mirror_groups(outputs: &[Output]) -> Vec<Vec<usize>> {
+    groups(outputs).into_iter().filter(|g| g.len() > 1).collect()
+}
+
 pub fn mirrors(outputs: &[Output]) -> Mirrors {
     let mut m = Mirrors::new();
-    for g in groups(outputs).into_iter().filter(|g| g.len() > 1) {
+    for g in mirror_groups(outputs) {
         for &i in &g {
             let others = g.iter().filter(|&&j| j != i).map(|&j| outputs[j].key.clone()).collect();
             m.insert(outputs[i].key.clone(), others);
@@ -144,6 +149,14 @@ mod tests {
         let o = vec![out("laptop", 0, (0, 0)), Output { source: (9, 0), ..out("projector", 0, (0, 0)) }];
         assert_eq!(mirrors(&o).len(), 2);
         assert_eq!(plan(&o, &Mirrors::new(), "laptop").splits, vec![vec![1]]);
+    }
+
+    #[test]
+    fn mirror_groups_are_the_screens_sharing_a_desktop() {
+        let o = vec![out("laptop", 0, (0, 0)), out("projector", 1, (1920, 0)), out("desk", 0, (0, 0))];
+        assert_eq!(mirror_groups(&o), vec![vec![0, 2]]);
+        let apart = vec![out("laptop", 0, (0, 0)), out("projector", 1, (1920, 0))];
+        assert!(mirror_groups(&apart).is_empty());
     }
 
     #[test]

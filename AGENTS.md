@@ -50,8 +50,9 @@ Windows behaves differently.
   everything extended, Presenter View on and off, started by `SlideShowSettings.Run` or the
   ribbon's `ExecuteMso("SlideShowFromBeginning")`: neither the active layout nor
   `QDC_DATABASE_CURRENT` ever changed. Instead it opens no Presenter View while anything is
-  duplicated, and keeps the slides off a duplicated desktop when there's another. Bench again
-  before building on a newer PowerPoint. Its windows: `screenClass` (slides), `PodiumParent`
+  duplicated, and keeps the slides off a duplicated desktop when there's another, so a pre-show
+  check says so wherever PowerPoint is installed (`preflight::duplicated`). Bench again before
+  building on a newer PowerPoint. Its windows: `screenClass` (slides), `PodiumParent`
   (Presenter View), `PPTFrameClass` (the editor). The bench kit is the spike's `bench-pptlayout/`;
   a missing Presenter View on a duplicated layout is PowerPoint's doing, not COM's.
 - **Pre-show checks only read.** Night light's state is parsed from its CloudStore blob only after

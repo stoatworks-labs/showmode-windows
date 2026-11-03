@@ -166,6 +166,13 @@ waiting Windows restart above all.
 > Mode wasn't running during these shows. Not checked: real screens, a projector plugged in while
 > PowerPoint is open or mid-show, and a laptop with two graphics adapters.
 >
+> **The duplicated-screens check that came out of that**, checked the same day on winlab with
+> `--status` (x64 build, standard-user token): with the virtual pair duplicated as the main
+> display, with it duplicated beside winlab's screen as main, and with Windows' own Duplicate of
+> all three, the pre-show checks named the duplicated screens; with everything extended they said
+> nothing. It read in under 30 ms. Not checked: seeing it in the menu or the note (they list the
+> same checks `--status` does), and a PC without PowerPoint, where it should stay quiet.
+>
 > **Not checked yet:** SmartScreen and Smart App Control meeting a downloaded copy; turning off a
 > screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
@@ -279,7 +286,8 @@ is duplicated, and keep the slides off a duplicated screen if there's another on
 laptop duplicated to a desk monitor, with the projector extended, gets the slides on the projector
 and no Presenter View. A laptop on its own as the main display, with the projector duplicated to a
 confidence monitor, gets the slides on the laptop, and the projector shows the desktop. If you
-want Presenter View, extend every screen before the show.
+want Presenter View, extend every screen before the show. The pre-show checks say so when a
+screen is duplicated on a PC with PowerPoint.
 
 ## Keys
 
@@ -384,6 +392,11 @@ checks changes anything.
 - **Night light on, or scheduled.** It tints every screen, the projector too, and a schedule can
   switch it on mid-show. Show Mode reads Night light's settings but never writes them: they're
   kept in a form only Windows can safely change.
+- **Duplicated screens, on a PC with PowerPoint.** PowerPoint for Windows won't open Presenter
+  View while any screen is duplicated, and puts the slides on another screen if there is one (see
+  [Keeping the screens where they are](#keeping-the-screens-where-they-are)). For Presenter View,
+  extend every screen in Settings > System > Display. A duplicate you meant, for a show that isn't
+  in PowerPoint, can stay.
 - **The taskbar on every display**, the projector included. Windows 11 does this unless it's
   switched off in Settings > Personalisation > Taskbar > Taskbar behaviours.
 - **Minimise windows when a monitor is disconnected.** If the projector drops out for a moment,

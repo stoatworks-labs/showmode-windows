@@ -153,6 +153,12 @@ pub fn screens() -> Vec<ScreenInfo> {
         .collect()
 }
 
+/// The screens duplicated now, by name, one list per mirror.
+pub fn duplicated() -> Vec<Vec<String>> {
+    let Some((_, outs, targets)) = current() else { return Vec::new() };
+    layout::mirror_groups(&outs).into_iter().map(|g| g.into_iter().map(|i| targets[i].name.clone()).collect()).collect()
+}
+
 /// Applies a plan to the layout `cfg` describes, as a temporary layout. Returns SetDisplayConfig's
 /// result (0 for success), or None if a split had no free desktop to go to.
 fn apply(cfg: &Config, outs: &[Output], plan: &Plan) -> Option<i32> {
