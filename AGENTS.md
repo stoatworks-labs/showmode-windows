@@ -43,6 +43,17 @@ Windows behaves differently.
   adapter's monitor under a made-up target id, and left no source free to split one off. Key
   monitors by device path, and when a split can't be built by hand, fall back to
   `SDC_TOPOLOGY_EXTEND` (unsaved), but never over a mirror that was there at the start.
+- **PowerPoint for Windows leaves the layout alone**, unlike PowerPoint for Mac, so the Mac screen
+  layout lock's clone holding and slide moving are not ported (build 16.0.20527 on 25H2, winlab
+  with the Virtual Display Driver, 2026-11-03). Duplicated main beside an extended screen, a
+  duplicated pair beside a lone main, a pair alone in Duplicate, Windows' own Duplicate and
+  everything extended, Presenter View on and off, started by `SlideShowSettings.Run` or the
+  ribbon's `ExecuteMso("SlideShowFromBeginning")`: neither the active layout nor
+  `QDC_DATABASE_CURRENT` ever changed. Instead it opens no Presenter View while anything is
+  duplicated, and keeps the slides off a duplicated desktop when there's another. Bench again
+  before building on a newer PowerPoint. Its windows: `screenClass` (slides), `PodiumParent`
+  (Presenter View), `PPTFrameClass` (the editor). The bench kit is the spike's `bench-pptlayout/`;
+  a missing Presenter View on a duplicated layout is PowerPoint's doing, not COM's.
 - **Pre-show checks only read.** Night light's state is parsed from its CloudStore blob only after
   the blob's shape checks out; anything else reads as unknown and reports nothing.
 - **Read back every restore.** SPI_SETWINARRANGING with the value in pvParam alone switched Snap

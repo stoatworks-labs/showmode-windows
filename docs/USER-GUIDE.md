@@ -149,6 +149,23 @@ waiting Windows restart above all.
 > left alone now. And with Syncthing set up but not running, each call to it cost two seconds while
 > Windows gave up on the connection; Show Mode checks it's running first now.
 >
+> **PowerPoint and duplicated screens, checked 2026-11-03 on winlab** (PowerPoint for Microsoft
+> 365, build 16.0.20527) with the Virtual Display Driver adding two screens beside its own
+> 1280×800 one. PowerPoint for Mac splits a duplicated pair when a Presenter View show starts, so
+> the Mac version of Show Mode now holds duplicates and moves the slides. PowerPoint for Windows
+> doesn't touch the layout. I started shows on a scratch deck, both through PowerPoint's automation
+> and with the ribbon's From Beginning, with Presenter View on and off, on five layouts: the
+> virtual pair duplicated as the main display with winlab's screen extended beside it, winlab's
+> screen main on its own with the pair duplicated beside it, the pair alone in Duplicate, Windows'
+> own Duplicate of all three, and everything extended. The layout never changed, during a show or
+> after it, and neither did the one Windows remembers for those screens. What PowerPoint did
+> instead was refuse to open Presenter View while anything was duplicated, and keep the slides off
+> a duplicated screen whenever it had another. With winlab's screen main and the pair duplicated
+> beside it, the slides went on the main screen and the pair showed the desktop. So the Mac's
+> clone handling has nothing to fix on Windows, and Show Mode for Windows doesn't have it. Show
+> Mode wasn't running during these shows. Not checked: real screens, a projector plugged in while
+> PowerPoint is open or mid-show, and a laptop with two graphics adapters.
+>
 > **Not checked yet:** SmartScreen and Smart App Control meeting a downloaded copy; turning off a
 > screen saver that is actually on (winlab has none); the
 > wallpaper blackout itself and putting a picture or slideshow back; pressing the hotkey; Launch at
@@ -254,6 +271,15 @@ for the rest of the show.
 
 When the show ends, the display that was main before it becomes main again. Screens split out of
 a mirror stay extended: the mirror was Windows' guess, not yours.
+
+**PowerPoint and duplicated screens.** PowerPoint for Windows leaves the layout alone when a
+show starts. PowerPoint for Mac doesn't, which is why the Mac version of Show Mode has more to do
+here. What PowerPoint for Windows does instead is refuse to open Presenter View while any screen
+is duplicated, and keep the slides off a duplicated screen if there's another one to use. A
+laptop duplicated to a desk monitor, with the projector extended, gets the slides on the projector
+and no Presenter View. A laptop on its own as the main display, with the projector duplicated to a
+confidence monitor, gets the slides on the laptop, and the projector shows the desktop. If you
+want Presenter View, extend every screen before the show.
 
 ## Keys
 
