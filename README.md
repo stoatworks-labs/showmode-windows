@@ -8,6 +8,8 @@ PC doing anything clever during the show (going to sleep, popping up notificatio
 holiday photos on the projector, letting Outlook chime through the PA), then puts every setting
 back how you had it.
 
+The [project page](https://stoatworks-labs.com/software/showmode-windows/) has the downloads and the [user guide](https://stoatworks-labs.com/software/showmode-windows/guide/).
+
 It's the Windows sibling of [Show Mode for the Mac](https://github.com/stoatworks-labs/showmode),
 and a separate app: Windows needed different answers to nearly every question.
 
